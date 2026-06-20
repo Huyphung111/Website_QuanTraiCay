@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ shop.name }} - Bảng Giá</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body data-admin="{{ '1' if is_admin else '0' }}">
+
+<header>
+  <div class="header-left">
+    <div class="logo-icon">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="logo">
+    </div>
+    <div>
+      <div class="shop-name">{{ shop.name }}</div>
+      <div class="shop-tagline">{{ shop.tagline }}</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="contact-block">
+      <a class="contact-item contact-link" href="{{ shop.maps_url }}" target="_blank" rel="noopener" title="Xem vị trí trên Google Maps">
+        <span class="icon">📍</span> {{ shop.address }} <span class="map-hint">› Xem bản đồ</span>
+      </a>
+      <a class="contact-item contact-link" href="tel:{{ shop.phone | replace(' ', '') }}">
+        <span class="icon">📞</span> {{ shop.phone }}
+      </a>
+    </div>
+    {% if is_admin %}
+      <div class="admin-actions">
+        <span class="admin-badge">🔓 Quản trị</span>
+        <button class="btn-access" id="btnLogout">Đăng xuất</button>
+      </div>
+    {% else %}
+      <button class="btn-access" id="btnAccess">🔑 Truy cập</button>
+    {% endif %}
+  </div>
+</header>
+
+<div class="strip"></div>
+
+<main>
+  <div class="section-header">
+    <div class="section-title">Danh sách trái cây</div>
+    <div class="section-right">
+      {% if last_update %}
+        <div class="last-update">🕐 Cập nhật: {{ last_update }}</div>
+      {% endif %}
+      {% if is_admin %}
+        <button class="btn-add" id="btnAdd">＋ Thêm trái cây</button>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="search-bar">
+    <span class="search-icon">🔍</span>
+    <input type="text" id="searchInput" placeholder="Tìm trái cây theo tên hoặc xuất xứ...">
+    <button class="search-clear" id="searchClear" title="Xóa" hidden>×</button>
+  </div>
+
+  <div class="fruit-grid">
+    {% for f in fruits %}
+    {% set sold_out = (f.badge == status_sold_out) %}
+    <div class="fruit-card {{ 'sold-out' if sold_out else '' }}"
+         data-id="{{ f.id }}"
+         data-search="{{ (f.name ~ ' ' ~ f.origin) | lower }}">
+      <div class="fruit-img-wrap">
+        {% if f.image_url %}
+          <img class="fruit-photo" src="{{ f.image_url }}" alt="{{ f.name }}">
+        {% else %}
+          <span class="fruit-emoji">{{ f.emoji }}</span>
+        {% endif %}
+        {% if sold_out %}
+          <div class="sold-out-overlay">HẾT HÀNG</div>
+        {% endif %}
+        {% if is_admin %}
+          <div class="card-tools">
+            <button class="tool-btn btn-edit" title="Sửa">✏️</button>
+            <button class="tool-btn btn-delete" title="Xóa">🗑️</button>
+          </div>
+        {% endif %}
+      </div>
+      <div class="fruit-body">
+        <div class="fruit-name">{{ f.name }}</div>
+        {% if f.origin %}
+          <div class="fruit-origin"><span class="dot"></span> {{ f.origin }}</div>
+        {% else %}
+          <div class="fruit-origin">&nbsp;</div>
+        {% endif %}
+        <div class="price-row">
+          <div><span class="price">{{ f.price_text }}</span><span class="price-unit">{{ f.unit }}</span></div>
+          {% if sold_out %}
+            <span class="badge-soldout">Hết hàng</span>
+          {% else %}
+            <span class="badge-available">Còn bán</span>
+          {% endif %}
+        </div>
+        <div class="update-row">🕐 {{ f.updated_human }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if fruits|length == 0 %}
+    <div class="empty-state">Chưa có trái cây nào. {% if is_admin %}Bấm “＋ Thêm trái cây” để bắt đầu.{% endif %}</div>
+  {% endif %}
+
+  <div class="empty-state" id="noResults" hidden>Không tìm thấy trái cây nào phù hợp.</div>
+</main>
+
+<footer>
+  {{ shop.name }} · <a href="{{ shop.maps_url }}" target="_blank" rel="noopener" class="footer-link">{{ shop.address }}</a> · {{ shop.phone }}
+</footer>
+
+
+<!-- ── MODAL: ĐĂNG NHẬP ADMIN ── -->
+<div class="modal-overlay" id="loginModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>🔑 Truy cập quản trị</h3>
+      <button class="modal-close" data-close>×</button>
+    </div>
+    <form id="loginForm">
+      <label>Tài khoản</label>
+      <input type="text" name="username" autocomplete="username" required>
+      <label>Mật khẩu</label>
+      <input type="password" name="password" autocomplete="current-password" required>
+      <div class="form-error" id="loginError"></div>
+      <div class="modal-foot">
+        <button type="button" class="btn-ghost" data-close>Hủy</button>
+        <button type="submit" class="btn-primary">Đăng nhập</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ── MODAL: THÊM / SỬA TRÁI CÂY ── -->
+<div class="modal-overlay" id="fruitModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="fruitModalTitle">Thêm trái cây</h3>
+      <button class="modal-close" data-close>×</button>
+    </div>
+    <form id="fruitForm" enctype="multipart/form-data">
+      <input type="hidden" name="id" id="fruitId">
+
+      <label>Tên trái cây <span class="req">*</span></label>
+      <input type="text" name="name" id="fName" placeholder="VD: Xoài cát Hòa Lộc" required>
+
+      <div class="form-row">
+        <div class="form-col">
+          <label>Giá (VND) <span class="req">*</span></label>
+          <input type="number" name="price" id="fPrice" min="0" step="1000" placeholder="55000" required>
+        </div>
+        <div class="form-col">
+          <label>Đơn vị</label>
+          <select name="unit" id="fUnit">
+            <option value="đ/kg">đ/kg</option>
+            <option value="đ/trái">đ/trái</option>
+            <option value="đ/hộp">đ/hộp</option>
+            <option value="đ/bó">đ/bó</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-col">
+          <label>Xuất xứ (tùy chọn)</label>
+          <select name="origin" id="fOrigin">
+            <option value="">— Chọn tỉnh/thành —</option>
+            {% for tinh in origins %}
+              <option value="{{ tinh }}">{{ tinh }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-col">
+          <label>Trạng thái</label>
+          <select name="badge" id="fBadge">
+            <option value="Còn bán">Còn bán</option>
+            <option value="Hết hàng">Hết hàng</option>
+          </select>
+        </div>
+      </div>
+
+      <label>Ảnh trái cây (tải lên)</label>
+      <input type="file" name="image" id="fImage" accept="image/*">
+      <div class="img-preview" id="imgPreview"></div>
+
+      <div class="form-error" id="fruitError"></div>
+      <div class="modal-foot">
+        <button type="button" class="btn-ghost" data-close>Hủy</button>
+        <button type="submit" class="btn-primary" id="fruitSubmit">Lưu</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Dữ liệu trái cây (để JS điền sẵn khi Sửa)
+  window.FRUITS = {{ fruits | tojson }};
+</script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

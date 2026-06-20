@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bích Trái Cây - Bảng Giá</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --yellow-100: #FFFBEA;
+    --yellow-200: #FFF3C4;
+    --yellow-300: #FFE066;
+    --yellow-400: #FFCC00;
+    --yellow-500: #F5A623;
+    --yellow-600: #D4850A;
+    --green-leaf: #3D7A3A;
+    --green-light: #E8F5E0;
+    --text-dark: #1A1200;
+    --text-mid: #5C4A00;
+    --text-soft: #8B7000;
+    --white: #FFFFFF;
+    --card-bg: #FFFEF5;
+    --border: #FFE8A0;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Be Vietnam Pro', sans-serif;
+    background-color: var(--yellow-100);
+    color: var(--text-dark);
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: linear-gradient(135deg, var(--yellow-400) 0%, var(--yellow-500) 100%);
+    padding: 28px 40px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 4px 20px rgba(213,133,10,0.25);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo-icon {
+    width: 54px;
+    height: 54px;
+    background: var(--white);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    flex-shrink: 0;
+  }
+
+  .shop-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 30px;
+    color: var(--white);
+    letter-spacing: 0.5px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    line-height: 1.1;
+  }
+
+  .shop-tagline {
+    font-size: 12px;
+    color: rgba(255,255,255,0.85);
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .header-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+
+  .contact-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    color: var(--white);
+    font-weight: 500;
+  }
+
+  .contact-item .icon {
+    font-size: 15px;
+    opacity: 0.9;
+  }
+
+  /* ── DIVIDER STRIP ── */
+  .strip {
+    background: var(--green-leaf);
+    height: 5px;
+    background: repeating-linear-gradient(
+      90deg,
+      var(--green-leaf) 0px,
+      var(--green-leaf) 20px,
+      var(--yellow-400) 20px,
+      var(--yellow-400) 22px
+    );
+  }
+
+  /* ── MAIN CONTENT ── */
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 36px 24px 60px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+  }
+
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    color: var(--text-dark);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title::before {
+    content: '';
+    display: block;
+    width: 5px;
+    height: 26px;
+    background: var(--yellow-500);
+    border-radius: 3px;
+  }
+
+  .last-update {
+    font-size: 12px;
+    color: var(--text-soft);
+    background: var(--yellow-200);
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+  }
+
+  /* ── GRID ── */
+  .fruit-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
+    gap: 20px;
+  }
+
+  .fruit-card {
+    background: var(--card-bg);
+    border: 1.5px solid var(--border);
+    border-radius: 18px;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: default;
+  }
+
+  .fruit-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(213,133,10,0.18);
+  }
+
+  .fruit-img-wrap {
+    background: var(--yellow-200);
+    height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 64px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .fruit-img-wrap::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 30px;
+    background: linear-gradient(to top, var(--card-bg), transparent);
+  }
+
+  .fruit-body {
+    padding: 14px 16px 16px;
+  }
+
+  .fruit-name {
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--text-dark);
+    margin-bottom: 4px;
+  }
+
+  .fruit-origin {
+    font-size: 11.5px;
+    color: var(--text-soft);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .fruit-origin .dot {
+    width: 5px; height: 5px;
+    background: var(--yellow-500);
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .price-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+
+  .price {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--yellow-600);
+    line-height: 1;
+  }
+
+  .price-unit {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-soft);
+    margin-left: 2px;
+  }
+
+  .badge-fresh {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--green-leaf);
+    background: var(--green-light);
+    padding: 3px 8px;
+    border-radius: 10px;
+    letter-spacing: 0.4px;
+  }
+
+  .badge-hot {
+    font-size: 10px;
+    font-weight: 600;
+    color: #C0392B;
+    background: #FDECEA;
+    padding: 3px 8px;
+    border-radius: 10px;
+    letter-spacing: 0.4px;
+  }
+
+  /* ── UPDATE ROW ── */
+  .update-row {
+    font-size: 11px;
+    color: var(--text-soft);
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    opacity: 0.8;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    text-align: center;
+    padding: 22px;
+    font-size: 12px;
+    color: var(--text-soft);
+    border-top: 1px solid var(--border);
+    background: var(--yellow-200);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="logo-icon">🍊</div>
+    <div>
+      <div class="shop-name">Bích Trái Cây</div>
+      <div class="shop-tagline">Bảng giá hôm nay</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="contact-item"><span class="icon">📍</span> 157 Nguyễn Hữu Tiến, P. Tây Thạnh, TP.HCM</div>
+    <div class="contact-item"><span class="icon">📞</span> 0973 149 271</div>
+  </div>
+</header>
+
+<div class="strip"></div>
+
+<main>
+  <div class="section-header">
+    <div class="section-title">Danh sách trái cây</div>
+    <div class="last-update">🕐 Cập nhật: 19/06/2025 · 07:30</div>
+  </div>
+
+  <div class="fruit-grid">
+
+    <div class="fruit-card">
+      <div class="fruit-img-wrap">🍉</div>
+      <div class="fruit-body">
+        <div class="fruit-name">Dưa hấu</div>
+        <div class="fruit-origin"><span class="dot"></span> Long An</div>
+        <div class="price-row">
+          <div><span class="price">8.000</span><span class="price-unit">đ/kg</span></div>
+          <span class="badge-fresh">Tươi</span>
+        </div>
+        <div class="update-row">🕐 Hôm nay</div>
+      </div>
+    </div>
+
+    <div class="fruit-card">
+      <div class="fruit-img-wrap">🍌</div>
+      <div class="fruit-body">
+        <div class="fruit-name">Chuối già Nam Mỹ</div>
+        <div class="fruit-origin"><span class="dot"></span> Đồng Nai</div>
+        <div class="price-row">
+          <div><span class="price">22.000</span><span class="price-unit">đ/kg</span></div>
+          <span class="badge-hot">Hot</span>
+        </div>
+        <div class="update-row">🕐 Hôm nay</div>
+      </div>
+    </div>
+
+    <div class="fruit-card">
+      <div class="fruit-img-wrap">🍇</div>
+      <div class="fruit-body">
+        <div class="fruit-name">Nho xanh Mỹ</div>
+        <div class="fruit-origin"><span class="dot"></span> Nhập khẩu</div>
+        <div class="price-row">
+          <div><span class="price">85.000</span><span class="price-unit">đ/kg</span></div>
+          <span class="badge-fresh">Tươi</span>
+        </div>
+        <div class="update-row">🕐 Hôm nay</div>
+      </div>
+    </div>
+
+    <div class="fruit-card">
+      <div class="fruit-img-wrap">🥭</div>
+      <div class="fruit-body">
+        <div class="fruit-name">Xoài cát Hòa Lộc</div>
+        <div class="fruit-origin"><span class="dot"></span> Tiền Giang</div>
+        <div class="price-row">
+          <div><span class="price">55.000</span><span class="price-unit">đ/kg</span></div>
+          <span class="badge-hot">Hot</span>
+        </div>
+        <div class="update-row">🕐 Hôm nay</div>
+      </div>
+    </div>
+
+    <div class="fruit-card">
+      <div class="fruit-img-wrap">🍍</div>
+      <div class="fruit-body">
+        <div class="fruit-name">Dứa mật</div>
+        <div class="fruit-origin"><span class="dot"></span> Kiên Giang</div>
+        <div class="price-row">
+          <div><span class="price">15.000</span><span class="price-unit">đ/trái</span></div>
+          <span class="badge-fresh">Tươi</span>
+        </div>
+        <div class="update-row">🕐 Hôm nay</div>
+      </div>
+    </div>
+
+    <div class="fruit-card">
+      <div class="fruit-img-wrap">🍓</div>
+      <div class="fruit-body">
+        <div class="fruit-name">Dâu tây Đà Lạt</div>
+        <div class="fruit-origin"><span class="dot"></span> Lâm Đồng</div>
+        <div class="price-row">
+          <div><span class="price">65.000</span><span class="price-unit">đ/hộp</span></div>
+          <span class="badge-hot">Hot</span>
+        </div>
+        <div class="update-row">🕐 Hôm nay</div>
+      </div>
+    </div>
+
+    <div class="fruit-card">
+      <div class="fruit-img-wrap">🍊</div>
+      <div class="fruit-body">
+        <div class="fruit-name">Cam sành</div>
+        <div class="fruit-origin"><span class="dot"></span> Vĩnh Long</div>
+        <div class="price-row">
+          <div><span class="price">30.000</span><span class="price-unit">đ/kg</span></div>
+          <span class="badge-fresh">Tươi</span>
+        </div>
+        <div class="update-row">🕐 Hôm nay</div>
+      </div>
+    </div>
+
+    <div class="fruit-card">
+      <div class="fruit-img-wrap">🍋</div>
+      <div class="fruit-body">
+        <div class="fruit-name">Chanh vàng Mỹ</div>
+        <div class="fruit-origin"><span class="dot"></span> Nhập khẩu</div>
+        <div class="price-row">
+          <div><span class="price">120.000</span><span class="price-unit">đ/kg</span></div>
+          <span class="badge-fresh">Tươi</span>
+        </div>
+        <div class="update-row">🕐 Hôm nay</div>
+      </div>
+    </div>
+
+    <div class="fruit-card">
+      <div class="fruit-img-wrap">🍑</div>
+      <div class="fruit-body">
+        <div class="fruit-name">Đào vàng</div>
+        <div class="fruit-origin"><span class="dot"></span> Nhập khẩu</div>
+        <div class="price-row">
+          <div><span class="price">95.000</span><span class="price-unit">đ/kg</span></div>
+          <span class="badge-fresh">Tươi</span>
+        </div>
+        <div class="update-row">🕐 Hôm nay</div>
+      </div>
+    </div>
+
+    <div class="fruit-card">
+      <div class="fruit-img-wrap">🍈</div>
+      <div class="fruit-body">
+        <div class="fruit-name">Dưa lưới Nhật</div>
+        <div class="fruit-origin"><span class="dot"></span> Nhập khẩu</div>
+        <div class="price-row">
+          <div><span class="price">280.000</span><span class="price-unit">đ/trái</span></div>
+          <span class="badge-hot">Hot</span>
+        </div>
+        <div class="update-row">🕐 Hôm nay</div>
+      </div>
+    </div>
+
+    <div class="fruit-card">
+      <div class="fruit-img-wrap">🍒</div>
+      <div class="fruit-body">
+        <div class="fruit-name">Cherry đỏ Mỹ</div>
+        <div class="fruit-origin"><span class="dot"></span> Nhập khẩu</div>
+        <div class="price-row">
+          <div><span class="price">199.000</span><span class="price-unit">đ/kg</span></div>
+          <span class="badge-fresh">Tươi</span>
+        </div>
+        <div class="update-row">🕐 Hôm nay</div>
+      </div>
+    </div>
+
+    <div class="fruit-card">
+      <div class="fruit-img-wrap">🍐</div>
+      <div class="fruit-body">
+        <div class="fruit-name">Lê Hàn Quốc</div>
+        <div class="fruit-origin"><span class="dot"></span> Nhập khẩu</div>
+        <div class="price-row">
+          <div><span class="price">145.000</span><span class="price-unit">đ/kg</span></div>
+          <span class="badge-fresh">Tươi</span>
+        </div>
+        <div class="update-row">🕐 Hôm nay</div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<footer>
+  Bích Trái Cây · 157 Nguyễn Hữu Tiến, P. Tây Thạnh, TP.HCM · 0973 149 271 · Bảng giá chỉ mang tính tham khảo nội bộ, không phục vụ mua bán thương mại điện tử
+</footer>
+
+</body>
+</html>
