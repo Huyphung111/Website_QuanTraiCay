@@ -46,11 +46,12 @@ UPLOAD_DIR = os.path.join(BASE_DIR, "static", "uploads")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 MAX_CONTENT_LENGTH = 8 * 1024 * 1024  # 8 MB / ảnh
 
-# Tài khoản admin — ĐỔI lại cho an toàn (có thể đặt qua biến môi trường).
+# Tài khoản admin — ĐỔI lại cho an toàn (nên đặt qua biến môi trường khi deploy,
+# để mật khẩu KHÔNG bị lộ trong code công khai trên GitHub).
 # Có thể có nhiều tài khoản, tất cả đều quyền admin (CRUD).
 ADMIN_USERS = {
     os.environ.get("BICH_ADMIN_USER", "admin"): os.environ.get("BICH_ADMIN_PASS", "bich123"),
-    "bichtraicay": "123456",
+    "bichtraicay": os.environ.get("BICH_ADMIN_PASS2", "123456"),
 }
 
 # Hai trạng thái của trái cây
@@ -129,6 +130,15 @@ def init_db():
         )
         """
     )
+    # Bảng cài đặt chung (dạng khóa-giá trị) — dùng cho chế độ "Tạm nghỉ"
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS settings (
+            key   TEXT PRIMARY KEY,
+            value TEXT
+        )
+        """
+    )
     conn.commit()
 
     count = conn.execute("SELECT COUNT(*) AS c FROM fruits").fetchone()["c"]
@@ -202,6 +212,40 @@ def full_time(iso_str):
     except (ValueError, TypeError):
         return ""
     return dt.strftime("%d/%m/%Y · %H:%M")
+
+
+def format_date_vn(iso_date):
+    """'2026-07-20' -> '20/07/2026'."""
+    try:
+        return datetime.strptime(iso_date, "%Y-%m-%d").strftime("%d/%m/%Y")
+    except (ValueError, TypeError):
+        return ""
+
+
+# ── Cài đặt chung (khóa-giá trị) ──
+def get_setting(key, default=""):
+    conn = get_db()
+    row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+    conn.close()
+    return row["value"] if row else default
+
+
+def set_setting(key, value):
+    conn = get_db()
+    conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, str(value)))
+    conn.commit()
+    conn.close()
+
+
+def get_break():
+    """Trạng thái chế độ 'Tạm nghỉ' của quán."""
+    until = get_setting("break_until", "")
+    return {
+        "enabled": get_setting("break_enabled", "0") == "1",
+        "until": until,                          # 'YYYY-MM-DD' (cho ô input)
+        "until_text": format_date_vn(until),     # 'dd/mm/yyyy' (để hiển thị)
+        "message": get_setting("break_message", ""),
+    }
 
 
 def fruit_to_dict(row):
@@ -285,6 +329,8 @@ def index():
         is_admin=is_admin(),
         origins=ORIGIN_OPTIONS,
         status_sold_out=STATUS_SOLD_OUT,
+        brk=get_break(),
+        today=datetime.now().date().isoformat(),
     )
 
 
@@ -413,6 +459,37 @@ def delete_fruit(fruit_id):
     conn.commit()
     conn.close()
     delete_image_file(row["image"])
+    return jsonify({"ok": True})
+
+
+# ─────────────────────────────────────────────────────────────
+# ROUTES — CHẾ ĐỘ TẠM NGHỈ (chỉ admin)
+# ─────────────────────────────────────────────────────────────
+@app.route("/break/save", methods=["POST"])
+@admin_required
+def break_save():
+    data = request.get_json(silent=True) or request.form
+    until = (data.get("until") or "").strip()
+    message = nfc(data.get("message"))
+
+    try:
+        chosen = datetime.strptime(until, "%Y-%m-%d").date()
+    except ValueError:
+        return jsonify({"ok": False, "error": "Vui lòng chọn ngày hợp lệ."}), 400
+
+    if chosen < datetime.now().date():
+        return jsonify({"ok": False, "error": "Ngày nghỉ tới phải từ hôm nay trở đi."}), 400
+
+    set_setting("break_enabled", "1")
+    set_setting("break_until", until)
+    set_setting("break_message", message)
+    return jsonify({"ok": True})
+
+
+@app.route("/break/off", methods=["POST"])
+@admin_required
+def break_off():
+    set_setting("break_enabled", "0")
     return jsonify({"ok": True})
 
 

@@ -42,6 +42,8 @@
 <div class="strip"></div>
 
 <main>
+  {% set hide_products = brk.enabled and not is_admin %}
+
   <div class="section-header">
     <div class="section-title">Danh sách trái cây</div>
     <div class="section-right">
@@ -49,10 +51,30 @@
         <div class="last-update">🕐 Cập nhật: {{ last_update }}</div>
       {% endif %}
       {% if is_admin %}
+        <button class="btn-break" id="btnBreak">🌙 Tạm nghỉ</button>
         <button class="btn-add" id="btnAdd">＋ Thêm trái cây</button>
       {% endif %}
     </div>
   </div>
+
+  {% if is_admin and brk.enabled %}
+    <div class="break-banner">
+      <span>🌙 Đang bật <b>chế độ tạm nghỉ</b> tới ngày <b>{{ brk.until_text }}</b>. Khách hiện không xem được sản phẩm.</span>
+      <span class="break-banner-actions">
+        <button class="btn-banner" id="btnBreakEdit">Đổi ngày / nội dung</button>
+        <button class="btn-resume" id="btnBreakOff">Mở lại quán</button>
+      </span>
+    </div>
+  {% endif %}
+
+  {% if hide_products %}
+    <div class="closed-state">
+      <div class="closed-emoji">🌙</div>
+      <div class="closed-title">Quán đang tạm nghỉ</div>
+      <div class="closed-sub">Hẹn gặp lại quý khách vào ngày <b>{{ brk.until_text }}</b></div>
+      {% if brk.message %}<div class="closed-msg">{{ brk.message }}</div>{% endif %}
+    </div>
+  {% else %}
 
   <div class="search-bar">
     <span class="search-icon">🔍</span>
@@ -108,6 +130,7 @@
   {% endif %}
 
   <div class="empty-state" id="noResults" hidden>Không tìm thấy trái cây nào phù hợp.</div>
+  {% endif %}{# hết nhánh hiển thị sản phẩm #}
 </main>
 
 <footer>
@@ -135,6 +158,52 @@
     </form>
   </div>
 </div>
+
+
+<!-- ── POPUP: THÔNG BÁO TẠM NGHỈ (cho khách) ── -->
+{% if hide_products %}
+<div class="modal-overlay open" id="breakPopup">
+  <div class="modal break-popup">
+    <div class="break-popup-icon">🌙</div>
+    <h3>Quán tạm nghỉ</h3>
+    <p class="break-popup-until">Tạm nghỉ tới ngày <b>{{ brk.until_text }}</b></p>
+    {% if brk.message %}<p class="break-popup-msg">{{ brk.message }}</p>{% endif %}
+    <div class="break-popup-foot">
+      <button class="btn-ghost" id="btnBreakLogin">🔑 Đăng nhập quản trị</button>
+      <button class="btn-primary" id="btnBreakOk">OK</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+
+<!-- ── MODAL: TẠM NGHỈ (cho admin) ── -->
+{% if is_admin %}
+<div class="modal-overlay" id="breakModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>🌙 Cài đặt tạm nghỉ</h3>
+      <button class="modal-close" data-close>×</button>
+    </div>
+    <form id="breakForm">
+      <label>Tạm nghỉ tới ngày <span class="req">*</span></label>
+      <input type="date" name="until" id="breakDate" min="{{ today }}" required>
+
+      <label>Nội dung thông báo (tùy chọn)</label>
+      <textarea name="message" id="breakMessage" rows="3"
+                placeholder="VD: Quán nghỉ Tết, hẹn gặp lại quý khách!"></textarea>
+
+      <div class="form-error" id="breakError"></div>
+      <div class="modal-foot">
+        {% if brk.enabled %}
+          <button type="button" class="btn-resume" id="btnBreakOffModal">Mở lại quán</button>
+        {% endif %}
+        <button type="submit" class="btn-primary">Xác nhận tạm nghỉ</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
 
 
 <!-- ── MODAL: THÊM / SỬA TRÁI CÂY ── -->
@@ -201,6 +270,8 @@
 <script>
   // Dữ liệu trái cây (để JS điền sẵn khi Sửa)
   window.FRUITS = {{ fruits | tojson }};
+  // Trạng thái tạm nghỉ (để JS điền sẵn vào modal)
+  window.BREAK = {{ brk | tojson }};
 </script>
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>

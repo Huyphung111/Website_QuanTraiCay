@@ -16,6 +16,7 @@ Mục đích: giúp **admin** nhớ giá đã nhập, và để **khách** xem q
   - ➕ **Thêm** trái cây (tên, giá VND, đơn vị, **xuất xứ chọn từ 34 tỉnh/thành**, trạng thái, **tải ảnh lên**)
   - ✏️ **Sửa** trái cây
   - 🗑️ **Xóa** trái cây
+  - 🌙 **Tạm nghỉ:** admin chọn ngày nghỉ tới + ghi nội dung. Khách vào sẽ thấy thông báo nổi "Tạm nghỉ tới ngày…" và **sản phẩm bị ẩn**; admin đăng nhập thì vẫn xem/sửa bình thường và có thể **đổi ngày** hoặc **mở lại quán**.
 - **Xuất xứ** là **danh sách chọn** lấy từ file `data/tinh_thanh_viet_nam_34*.md` (34 tỉnh/thành sau sáp nhập 2025) + tùy chọn **"Nhập khẩu"**.
 - Giao diện giữ đúng thiết kế mẫu `bich-trai-cay.html` (tông vàng).
 - Ảnh đại diện quán lấy từ ảnh trong thư mục `src` (mít).

@@ -58,13 +58,33 @@
   // ĐĂNG NHẬP (khách -> admin)
   // ─────────────────────────────────────────────
   var loginModal = document.getElementById("loginModal");
+  function openLogin() {
+    document.getElementById("loginError").textContent = "";
+    document.getElementById("loginForm").reset();
+    openModal(loginModal);
+  }
+
   var btnAccess = document.getElementById("btnAccess");
   if (btnAccess) {
-    btnAccess.addEventListener("click", function () {
-      document.getElementById("loginError").textContent = "";
-      document.getElementById("loginForm").reset();
-      openModal(loginModal);
-    });
+    btnAccess.addEventListener("click", openLogin);
+  }
+
+  // ─────────────────────────────────────────────
+  // POPUP TẠM NGHỈ (hiện cho khách khi quán nghỉ)
+  // ─────────────────────────────────────────────
+  var breakPopup = document.getElementById("breakPopup");
+  if (breakPopup) {
+    var btnBreakOk = document.getElementById("btnBreakOk");
+    if (btnBreakOk) {
+      btnBreakOk.addEventListener("click", function () { closeModal(breakPopup); });
+    }
+    var btnBreakLogin = document.getElementById("btnBreakLogin");
+    if (btnBreakLogin) {
+      btnBreakLogin.addEventListener("click", function () {
+        closeModal(breakPopup);
+        openLogin();
+      });
+    }
   }
 
   var loginForm = document.getElementById("loginForm");
@@ -208,6 +228,63 @@
           errBox.textContent = "Lỗi kết nối máy chủ.";
           submitBtn.disabled = false;
         });
+    });
+  }
+
+  // ─────────────────────────────────────────────
+  // TẠM NGHỈ (admin cài đặt)
+  // ─────────────────────────────────────────────
+  var breakModal = document.getElementById("breakModal");
+  var breakForm = document.getElementById("breakForm");
+
+  function openBreakModal() {
+    var b = window.BREAK || {};
+    document.getElementById("breakDate").value = b.until || "";
+    document.getElementById("breakMessage").value = b.message || "";
+    document.getElementById("breakError").textContent = "";
+    openModal(breakModal);
+  }
+
+  function turnOffBreak() {
+    if (!confirm("Mở lại quán (tắt chế độ tạm nghỉ)?")) return;
+    fetch("/break/off", { method: "POST" })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.ok) { window.location.reload(); }
+        else { alert(d.error || "Không thực hiện được."); }
+      })
+      .catch(function () { alert("Lỗi kết nối máy chủ."); });
+  }
+
+  var btnBreak = document.getElementById("btnBreak");
+  if (btnBreak) btnBreak.addEventListener("click", openBreakModal);
+
+  var btnBreakEdit = document.getElementById("btnBreakEdit");
+  if (btnBreakEdit) btnBreakEdit.addEventListener("click", openBreakModal);
+
+  var btnBreakOff = document.getElementById("btnBreakOff");
+  if (btnBreakOff) btnBreakOff.addEventListener("click", turnOffBreak);
+
+  var btnBreakOffModal = document.getElementById("btnBreakOffModal");
+  if (btnBreakOffModal) btnBreakOffModal.addEventListener("click", turnOffBreak);
+
+  if (breakForm) {
+    breakForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var errBox = document.getElementById("breakError");
+      errBox.textContent = "";
+      var fd = new FormData(breakForm);
+
+      fetch("/break/save", { method: "POST", body: fd })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          if (res.d.ok) {
+            window.location.reload();
+          } else {
+            errBox.textContent = res.d.error || "Lưu thất bại.";
+          }
+        })
+        .catch(function () { errBox.textContent = "Lỗi kết nối máy chủ."; });
     });
   }
 })();

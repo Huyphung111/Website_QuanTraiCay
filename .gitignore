@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Dữ liệu sinh ra khi chạy (KHÔNG đẩy lên GitHub)
+data/fruits.db
+static/uploads/*
+!static/uploads/.gitkeep
+
+# Log
+*.log
+server.log
