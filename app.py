@@ -193,25 +193,21 @@ def format_price(value):
         return str(value)
 
 
-def humanize_time(iso_str):
-    """Đổi thời gian ISO thành dạng dễ đọc cho thẻ trái cây."""
+def relative_time(iso_str):
+    """Đổi thời gian ISO thành dạng tương đối tiếng Việt:
+    'vừa xong', 'X phút trước', 'X giờ trước', 'X ngày trước'."""
     try:
         dt = datetime.fromisoformat(iso_str)
     except (ValueError, TypeError):
         return ""
-    today = datetime.now().date()
-    if dt.date() == today:
-        return "Hôm nay"
-    return dt.strftime("%d/%m/%Y")
-
-
-def full_time(iso_str):
-    """Đổi thời gian ISO thành 'dd/mm/yyyy · HH:MM'."""
-    try:
-        dt = datetime.fromisoformat(iso_str)
-    except (ValueError, TypeError):
-        return ""
-    return dt.strftime("%d/%m/%Y · %H:%M")
+    secs = (datetime.now() - dt).total_seconds()
+    if secs < 60:
+        return "vừa xong"
+    if secs < 3600:
+        return f"{int(secs // 60)} phút trước"
+    if secs < 86400:
+        return f"{int(secs // 3600)} giờ trước"
+    return f"{int(secs // 86400)} ngày trước"
 
 
 def format_date_vn(iso_date):
@@ -262,7 +258,6 @@ def fruit_to_dict(row):
         "image": row["image"] or "",
         "image_url": url_for("static", filename="uploads/" + row["image"]) if row["image"] else "",
         "updated_at": row["updated_at"],
-        "updated_human": humanize_time(row["updated_at"]),
     }
 
 
@@ -319,7 +314,7 @@ def index():
     last_update = ""
     if rows:
         latest = max(r["updated_at"] for r in rows)
-        last_update = full_time(latest)
+        last_update = relative_time(latest)
 
     return render_template(
         "index.html",

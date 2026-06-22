@@ -10,6 +10,7 @@
 <body data-admin="{{ '1' if is_admin else '0' }}">
 
 <header>
+  <div class="header-inner" id="headerInner">
   <div class="header-left">
     <div class="logo-icon">
       <img src="{{ url_for('static', filename='img/logo.png') }}" alt="logo">
@@ -37,6 +38,10 @@
       <button class="btn-access" id="btnAccess">🔑 Truy cập</button>
     {% endif %}
   </div>
+  </div><!-- /.header-inner -->
+  <button class="header-toggle" id="headerToggle" type="button"
+          aria-expanded="true" aria-controls="headerInner"
+          title="Thu gọn đầu trang">▴</button>
 </header>
 
 <div class="strip"></div>
@@ -119,7 +124,6 @@
             <span class="badge-available">Còn bán</span>
           {% endif %}
         </div>
-        <div class="update-row">🕐 {{ f.updated_human }}</div>
       </div>
     </div>
     {% endfor %}

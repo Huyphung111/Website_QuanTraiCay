@@ -120,6 +120,19 @@
   }
 
   // ─────────────────────────────────────────────
+  // THU GỌN / MỞ RỘNG HEADER (cho cả khách và admin)
+  // ─────────────────────────────────────────────
+  var headerToggle = document.getElementById("headerToggle");
+  if (headerToggle) {
+    headerToggle.addEventListener("click", function () {
+      var collapsed = document.body.classList.toggle("header-collapsed");
+      headerToggle.textContent = collapsed ? "▾" : "▴";
+      headerToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+      headerToggle.title = collapsed ? "Mở rộng đầu trang" : "Thu gọn đầu trang";
+    });
+  }
+
+  // ─────────────────────────────────────────────
   // CRUD (chỉ chạy khi là admin)
   // ─────────────────────────────────────────────
   if (!isAdmin) return;
