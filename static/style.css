@@ -287,6 +287,28 @@ main {
 }
 .btn-add:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(61,122,58,0.4); }
 
+.btn-invoices {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--white);
+  background: var(--yellow-600);
+  border: none;
+  padding: 9px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(213,133,10,0.3);
+  transition: transform 0.15s, box-shadow 0.15s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-invoices:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(213,133,10,0.4);
+}
+
 /* ── GRID ── */
 .fruit-grid {
   display: grid;

@@ -13,6 +13,7 @@ Chạy:  python app.py   ->   mở http://127.0.0.1:5000
 """
 
 import glob
+import json
 import os
 import sqlite3
 import sys
@@ -139,6 +140,56 @@ def init_db():
         )
         """
     )
+    # Các bảng quản lý hóa đơn (chỉ dùng trong khu quản trị).
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS invoice_shops (
+            id      INTEGER PRIMARY KEY AUTOINCREMENT,
+            name    TEXT NOT NULL UNIQUE,
+            address TEXT DEFAULT ''
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS invoices (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            shop_id    INTEGER NOT NULL,
+            code       TEXT    NOT NULL,
+            date       TEXT    NOT NULL,
+            note       TEXT    DEFAULT '',
+            photo      TEXT    DEFAULT '',
+            created_at TEXT    NOT NULL,
+            UNIQUE(shop_id, code),
+            FOREIGN KEY(shop_id) REFERENCES invoice_shops(id) ON DELETE CASCADE
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS invoice_items (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            invoice_id INTEGER NOT NULL,
+            fruit      TEXT    NOT NULL,
+            price      REAL    NOT NULL DEFAULT 0,
+            kg         REAL    NOT NULL DEFAULT 0,
+            FOREIGN KEY(invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS invoice_photos (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            filename      TEXT    NOT NULL,
+            original_name TEXT    DEFAULT '',
+            source        TEXT    DEFAULT 'archive',
+            invoice_id    INTEGER,
+            file_size     INTEGER DEFAULT 0,
+            created_at    TEXT    NOT NULL
+        )
+        """
+    )
     conn.commit()
 
     count = conn.execute("SELECT COUNT(*) AS c FROM fruits").fetchone()["c"]
@@ -164,6 +215,18 @@ def init_db():
             """INSERT INTO fruits (name, origin, price, unit, badge, emoji, image, updated_at)
                VALUES (?, ?, ?, ?, ?, ?, '', ?)""",
             [(n, o, p, u, b, e, now) for (n, o, p, u, b, e) in seed],
+        )
+        conn.commit()
+
+    shop_count = conn.execute("SELECT COUNT(*) AS c FROM invoice_shops").fetchone()["c"]
+    if shop_count == 0:
+        conn.executemany(
+            "INSERT INTO invoice_shops (name, address) VALUES (?, ?)",
+            [
+                ("Quán 1", "157 Nguyễn Hữu Tiến"),
+                ("Quán 2", "Chi nhánh 2"),
+                ("Quán 3", "Chi nhánh 3"),
+            ],
         )
         conn.commit()
     conn.close()
@@ -261,6 +324,54 @@ def fruit_to_dict(row):
     }
 
 
+def invoice_shop_to_dict(row):
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "address": row["address"] or "Chưa cập nhật",
+        "invoice_count": row["invoice_count"] if "invoice_count" in row.keys() else 0,
+    }
+
+
+def invoice_to_dict(row, items=None):
+    data = {
+        "id": row["id"],
+        "shop_id": row["shop_id"],
+        "code": row["code"],
+        "date": row["date"],
+        "note": row["note"] or "",
+        "photo": row["photo"] or "",
+        "photo_url": url_for("static", filename="uploads/" + row["photo"]) if row["photo"] else "",
+        "created_at": row["created_at"],
+        "items": items or [],
+    }
+    data["total"] = sum(float(i["price"]) * float(i["kg"]) for i in data["items"])
+    return data
+
+
+def invoice_photo_to_dict(row):
+    return {
+        "id": row["id"],
+        "filename": row["filename"],
+        "original_name": row["original_name"] or row["filename"],
+        "source": row["source"] or "archive",
+        "invoice_id": row["invoice_id"],
+        "file_size": row["file_size"] or 0,
+        "created_at": row["created_at"],
+        "url": url_for("static", filename="uploads/" + row["filename"]),
+    }
+
+
+def next_invoice_code(conn, shop_id):
+    rows = conn.execute("SELECT code FROM invoices WHERE shop_id = ?", (shop_id,)).fetchall()
+    max_num = 0
+    for row in rows:
+        code = row["code"] or ""
+        if code.startswith("HD") and code[2:].isdigit():
+            max_num = max(max_num, int(code[2:]))
+    return "HD" + str(max_num + 1).zfill(3)
+
+
 def is_admin():
     return session.get("is_admin", False)
 
@@ -285,6 +396,26 @@ def save_uploaded_image(file_storage):
     fname = f"{uuid.uuid4().hex}.{ext}"
     file_storage.save(os.path.join(UPLOAD_DIR, secure_filename(fname)))
     return fname
+
+
+def remember_invoice_photo(conn, filename, original_name="", source="archive", invoice_id=None):
+    if not filename:
+        return
+    path = os.path.join(UPLOAD_DIR, filename)
+    file_size = os.path.getsize(path) if os.path.isfile(path) else 0
+    conn.execute(
+        """INSERT INTO invoice_photos
+           (filename, original_name, source, invoice_id, file_size, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (
+            filename,
+            nfc(original_name) or filename,
+            source,
+            invoice_id,
+            file_size,
+            datetime.now().isoformat(timespec="seconds"),
+        ),
+    )
 
 
 def delete_image_file(filename):
@@ -485,6 +616,450 @@ def break_save():
 @admin_required
 def break_off():
     set_setting("break_enabled", "0")
+    return jsonify({"ok": True})
+
+
+# ─────────────────────────────────────────────────────────────
+# ROUTES — QUẢN LÝ HÓA ĐƠN (chỉ admin)
+# ─────────────────────────────────────────────────────────────
+@app.route("/invoices")
+def invoices_page():
+    if not is_admin():
+        return redirect(url_for("index"))
+    return render_template("invoices.html", shop=SHOP_INFO)
+
+
+@app.route("/api/invoice-shops", methods=["GET"])
+@admin_required
+def api_invoice_shops():
+    conn = get_db()
+    rows = conn.execute(
+        """
+        SELECT s.id, s.name, s.address, COUNT(i.id) AS invoice_count
+        FROM invoice_shops s
+        LEFT JOIN invoices i ON i.shop_id = s.id
+        GROUP BY s.id
+        ORDER BY s.id
+        """
+    ).fetchall()
+    conn.close()
+    return jsonify({"ok": True, "shops": [invoice_shop_to_dict(r) for r in rows]})
+
+
+@app.route("/api/invoice-shops", methods=["POST"])
+@admin_required
+def api_add_invoice_shop():
+    data = request.get_json(silent=True) or request.form
+    name = nfc(data.get("name"))
+    address = nfc(data.get("address")) or "Chưa cập nhật"
+    if not name:
+        return jsonify({"ok": False, "error": "Vui lòng nhập tên quán."}), 400
+    if len(name) > 30:
+        return jsonify({"ok": False, "error": "Tên quán tối đa 30 ký tự."}), 400
+
+    conn = get_db()
+    try:
+        cur = conn.execute(
+            "INSERT INTO invoice_shops (name, address) VALUES (?, ?)",
+            (name, address),
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        return jsonify({"ok": False, "error": "Tên quán này đã tồn tại."}), 400
+
+    row = conn.execute(
+        "SELECT id, name, address, 0 AS invoice_count FROM invoice_shops WHERE id = ?",
+        (cur.lastrowid,),
+    ).fetchone()
+    conn.close()
+    return jsonify({"ok": True, "shop": invoice_shop_to_dict(row)})
+
+
+@app.route("/api/invoice-shops/<int:shop_id>/edit", methods=["POST"])
+@admin_required
+def api_edit_invoice_shop(shop_id):
+    data = request.get_json(silent=True) or request.form
+    name = nfc(data.get("name"))
+    address = nfc(data.get("address")) or "Chưa cập nhật"
+    if not name:
+        return jsonify({"ok": False, "error": "Vui lòng nhập tên quán."}), 400
+    if len(name) > 30:
+        return jsonify({"ok": False, "error": "Tên quán tối đa 30 ký tự."}), 400
+
+    conn = get_db()
+    row = conn.execute("SELECT * FROM invoice_shops WHERE id = ?", (shop_id,)).fetchone()
+    if not row:
+        conn.close()
+        return jsonify({"ok": False, "error": "Không tìm thấy quán."}), 404
+    try:
+        conn.execute(
+            "UPDATE invoice_shops SET name = ?, address = ? WHERE id = ?",
+            (name, address, shop_id),
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        return jsonify({"ok": False, "error": "Tên quán này đã tồn tại."}), 400
+
+    updated = conn.execute(
+        """
+        SELECT s.id, s.name, s.address, COUNT(i.id) AS invoice_count
+        FROM invoice_shops s
+        LEFT JOIN invoices i ON i.shop_id = s.id
+        WHERE s.id = ?
+        GROUP BY s.id
+        """,
+        (shop_id,),
+    ).fetchone()
+    conn.close()
+    return jsonify({"ok": True, "shop": invoice_shop_to_dict(updated)})
+
+
+@app.route("/api/invoice-shops/<int:shop_id>/delete", methods=["POST"])
+@admin_required
+def api_delete_invoice_shop(shop_id):
+    conn = get_db()
+    row = conn.execute("SELECT * FROM invoice_shops WHERE id = ?", (shop_id,)).fetchone()
+    if not row:
+        conn.close()
+        return jsonify({"ok": False, "error": "Không tìm thấy quán."}), 404
+
+    invoice_rows = conn.execute("SELECT id FROM invoices WHERE shop_id = ?", (shop_id,)).fetchall()
+    invoice_ids = [r["id"] for r in invoice_rows]
+    if invoice_ids:
+        placeholders = ",".join("?" for _ in invoice_ids)
+        conn.execute(f"UPDATE invoice_photos SET invoice_id = NULL WHERE invoice_id IN ({placeholders})", invoice_ids)
+        conn.execute(f"DELETE FROM invoice_items WHERE invoice_id IN ({placeholders})", invoice_ids)
+    conn.execute("DELETE FROM invoices WHERE shop_id = ?", (shop_id,))
+    conn.execute("DELETE FROM invoice_shops WHERE id = ?", (shop_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/invoice-shops/<int:shop_id>/invoices", methods=["GET"])
+@admin_required
+def api_invoices(shop_id):
+    date_filter = (request.args.get("date") or "").strip()
+    conn = get_db()
+    shop = conn.execute("SELECT * FROM invoice_shops WHERE id = ?", (shop_id,)).fetchone()
+    if not shop:
+        conn.close()
+        return jsonify({"ok": False, "error": "Không tìm thấy quán."}), 404
+
+    params = [shop_id]
+    where_date = ""
+    if date_filter:
+        where_date = " AND date = ?"
+        params.append(date_filter)
+
+    rows = conn.execute(
+        f"SELECT * FROM invoices WHERE shop_id = ?{where_date} ORDER BY date DESC, id DESC",
+        params,
+    ).fetchall()
+    invoice_ids = [r["id"] for r in rows]
+    items_by_invoice = {invoice_id: [] for invoice_id in invoice_ids}
+    if invoice_ids:
+        placeholders = ",".join("?" for _ in invoice_ids)
+        item_rows = conn.execute(
+            f"""SELECT id, invoice_id, fruit, price, kg
+                FROM invoice_items
+                WHERE invoice_id IN ({placeholders})
+                ORDER BY id""",
+            invoice_ids,
+        ).fetchall()
+        for item in item_rows:
+            items_by_invoice[item["invoice_id"]].append(
+                {
+                    "id": item["id"],
+                    "fruit": item["fruit"],
+                    "price": item["price"],
+                    "kg": item["kg"],
+                }
+            )
+    conn.close()
+
+    invoices = [invoice_to_dict(r, items_by_invoice.get(r["id"], [])) for r in rows]
+    return jsonify({
+        "ok": True,
+        "shop": {"id": shop["id"], "name": shop["name"], "address": shop["address"] or ""},
+        "invoices": invoices,
+        "total": sum(inv["total"] for inv in invoices),
+    })
+
+
+@app.route("/api/invoice-shops/<int:shop_id>/invoices", methods=["POST"])
+@admin_required
+def api_add_invoice(shop_id):
+    conn = get_db()
+    shop = conn.execute("SELECT * FROM invoice_shops WHERE id = ?", (shop_id,)).fetchone()
+    if not shop:
+        conn.close()
+        return jsonify({"ok": False, "error": "Không tìm thấy quán."}), 404
+
+    date = (request.form.get("date") or "").strip()
+    note = nfc(request.form.get("note"))
+    try:
+        datetime.strptime(date, "%Y-%m-%d")
+    except ValueError:
+        conn.close()
+        return jsonify({"ok": False, "error": "Vui lòng chọn ngày hợp lệ."}), 400
+
+    try:
+        raw_items = json.loads(request.form.get("items") or "[]")
+    except json.JSONDecodeError:
+        conn.close()
+        return jsonify({"ok": False, "error": "Danh sách hàng không hợp lệ."}), 400
+
+    items = []
+    for item in raw_items:
+        fruit = nfc(item.get("fruit"))
+        try:
+            price = float(item.get("price"))
+            kg = float(item.get("kg"))
+        except (TypeError, ValueError):
+            conn.close()
+            return jsonify({"ok": False, "error": "Giá và kg phải là số."}), 400
+        if not fruit or price < 0 or kg <= 0:
+            conn.close()
+            return jsonify({"ok": False, "error": "Vui lòng điền đủ thông tin hàng hóa."}), 400
+        items.append({"fruit": fruit, "price": price, "kg": kg})
+
+    if not items:
+        conn.close()
+        return jsonify({"ok": False, "error": "Vui lòng thêm ít nhất một mặt hàng."}), 400
+
+    try:
+        photo = save_uploaded_image(request.files.get("photo"))
+    except ValueError as e:
+        conn.close()
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+    now = datetime.now().isoformat(timespec="seconds")
+    code = next_invoice_code(conn, shop_id)
+    cur = conn.execute(
+        """INSERT INTO invoices (shop_id, code, date, note, photo, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (shop_id, code, date, note, photo, now),
+    )
+    invoice_id = cur.lastrowid
+    conn.executemany(
+        """INSERT INTO invoice_items (invoice_id, fruit, price, kg)
+           VALUES (?, ?, ?, ?)""",
+        [(invoice_id, i["fruit"], i["price"], i["kg"]) for i in items],
+    )
+    remember_invoice_photo(
+        conn,
+        photo,
+        request.files.get("photo").filename if request.files.get("photo") else "",
+        "invoice",
+        invoice_id,
+    )
+    conn.commit()
+    row = conn.execute("SELECT * FROM invoices WHERE id = ?", (invoice_id,)).fetchone()
+    conn.close()
+    return jsonify({"ok": True, "invoice": invoice_to_dict(row, items)})
+
+
+@app.route("/api/invoice-shops/<int:shop_id>/invoices/<int:invoice_id>/edit", methods=["POST"])
+@admin_required
+def api_edit_invoice(shop_id, invoice_id):
+    conn = get_db()
+    row = conn.execute(
+        "SELECT * FROM invoices WHERE id = ? AND shop_id = ?",
+        (invoice_id, shop_id),
+    ).fetchone()
+    if not row:
+        conn.close()
+        return jsonify({"ok": False, "error": "Không tìm thấy hóa đơn."}), 404
+
+    date = (request.form.get("date") or "").strip()
+    note = nfc(request.form.get("note"))
+    try:
+        datetime.strptime(date, "%Y-%m-%d")
+    except ValueError:
+        conn.close()
+        return jsonify({"ok": False, "error": "Vui lòng chọn ngày hợp lệ."}), 400
+
+    try:
+        raw_items = json.loads(request.form.get("items") or "[]")
+    except json.JSONDecodeError:
+        conn.close()
+        return jsonify({"ok": False, "error": "Danh sách hàng không hợp lệ."}), 400
+
+    items = []
+    for item in raw_items:
+        fruit = nfc(item.get("fruit"))
+        try:
+            price = float(item.get("price"))
+            kg = float(item.get("kg"))
+        except (TypeError, ValueError):
+            conn.close()
+            return jsonify({"ok": False, "error": "Giá và kg phải là số."}), 400
+        if not fruit or price < 0 or kg <= 0:
+            conn.close()
+            return jsonify({"ok": False, "error": "Vui lòng điền đủ thông tin hàng hóa."}), 400
+        items.append({"fruit": fruit, "price": price, "kg": kg})
+
+    if not items:
+        conn.close()
+        return jsonify({"ok": False, "error": "Vui lòng thêm ít nhất một mặt hàng."}), 400
+
+    clear_photo = request.form.get("clear_photo") == "1"
+    old_photo = row["photo"] or ""
+    photo = old_photo
+
+    new_file = request.files.get("photo")
+    if clear_photo:
+        photo = ""
+    elif new_file and new_file.filename:
+        try:
+            photo = save_uploaded_image(new_file)
+        except ValueError as e:
+            conn.close()
+            return jsonify({"ok": False, "error": str(e)}), 400
+
+    if old_photo and photo != old_photo:
+        conn.execute("DELETE FROM invoice_photos WHERE filename = ?", (old_photo,))
+        delete_image_file(old_photo)
+
+    conn.execute(
+        "UPDATE invoices SET date = ?, note = ?, photo = ? WHERE id = ?",
+        (date, note, photo, invoice_id),
+    )
+    conn.execute("DELETE FROM invoice_items WHERE invoice_id = ?", (invoice_id,))
+    conn.executemany(
+        """INSERT INTO invoice_items (invoice_id, fruit, price, kg)
+           VALUES (?, ?, ?, ?)""",
+        [(invoice_id, i["fruit"], i["price"], i["kg"]) for i in items],
+    )
+    if new_file and new_file.filename:
+        remember_invoice_photo(conn, photo, new_file.filename, "invoice", invoice_id)
+    conn.commit()
+    updated = conn.execute("SELECT * FROM invoices WHERE id = ?", (invoice_id,)).fetchone()
+    conn.close()
+    return jsonify({"ok": True, "invoice": invoice_to_dict(updated, items)})
+
+
+@app.route("/api/invoice-shops/<int:shop_id>/invoices/<int:invoice_id>", methods=["GET"])
+@admin_required
+def api_invoice_detail(shop_id, invoice_id):
+    conn = get_db()
+    row = conn.execute(
+        "SELECT * FROM invoices WHERE id = ? AND shop_id = ?",
+        (invoice_id, shop_id),
+    ).fetchone()
+    if not row:
+        conn.close()
+        return jsonify({"ok": False, "error": "Không tìm thấy hóa đơn."}), 404
+    item_rows = conn.execute(
+        "SELECT id, fruit, price, kg FROM invoice_items WHERE invoice_id = ? ORDER BY id",
+        (invoice_id,),
+    ).fetchall()
+    conn.close()
+    items = [{"id": r["id"], "fruit": r["fruit"], "price": r["price"], "kg": r["kg"]} for r in item_rows]
+    return jsonify({"ok": True, "invoice": invoice_to_dict(row, items)})
+
+
+@app.route("/api/invoice-shops/<int:shop_id>/invoices/<int:invoice_id>/delete", methods=["POST"])
+@admin_required
+def api_delete_invoice(shop_id, invoice_id):
+    conn = get_db()
+    row = conn.execute(
+        "SELECT * FROM invoices WHERE id = ? AND shop_id = ?",
+        (invoice_id, shop_id),
+    ).fetchone()
+    if not row:
+        conn.close()
+        return jsonify({"ok": False, "error": "Không tìm thấy hóa đơn."}), 404
+    conn.execute("UPDATE invoice_photos SET invoice_id = NULL WHERE invoice_id = ?", (invoice_id,))
+    conn.execute("DELETE FROM invoice_items WHERE invoice_id = ?", (invoice_id,))
+    conn.execute("DELETE FROM invoices WHERE id = ?", (invoice_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/invoice-photos", methods=["GET"])
+@admin_required
+def api_invoice_photos():
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM invoice_photos ORDER BY id DESC"
+    ).fetchall()
+    conn.close()
+    return jsonify({"ok": True, "photos": [invoice_photo_to_dict(r) for r in rows]})
+
+
+@app.route("/api/invoice-photos/upload", methods=["POST"])
+@admin_required
+def api_upload_invoice_photos():
+    files = request.files.getlist("photos")
+    if not files:
+        return jsonify({"ok": False, "error": "Vui lòng chọn ít nhất một ảnh."}), 400
+
+    saved = []
+    conn = get_db()
+    try:
+        for file_storage in files:
+            if not file_storage or not file_storage.filename:
+                continue
+            filename = save_uploaded_image(file_storage)
+            remember_invoice_photo(conn, filename, file_storage.filename, "archive", None)
+            saved.append(filename)
+    except ValueError as e:
+        conn.close()
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+    if not saved:
+        conn.close()
+        return jsonify({"ok": False, "error": "Không có ảnh hợp lệ để lưu."}), 400
+
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True, "message": f"Đã lưu {len(saved)} ảnh vào kho."})
+
+
+@app.route("/api/invoice-photos/<int:photo_id>/delete", methods=["POST"])
+@admin_required
+def api_delete_invoice_photo(photo_id):
+    conn = get_db()
+    row = conn.execute(
+        "SELECT filename FROM invoice_photos WHERE id = ?", (photo_id,)
+    ).fetchone()
+    if not row:
+        conn.close()
+        return jsonify({"ok": False, "error": "Không tìm thấy ảnh."}), 404
+    filename = row["filename"]
+    conn.execute("UPDATE invoices SET photo = '' WHERE photo = ?", (filename,))
+    conn.execute("DELETE FROM invoice_photos WHERE id = ?", (photo_id,))
+    conn.commit()
+    conn.close()
+    delete_image_file(filename)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/invoice-photos/<int:photo_id>/edit-name", methods=["POST"])
+@admin_required
+def api_edit_invoice_photo_name(photo_id):
+    data = request.get_json(silent=True) or request.form
+    name = nfc(data.get("name") or "").strip()
+    if not name:
+        return jsonify({"ok": False, "error": "Vui lòng nhập tên ảnh."}), 400
+    conn = get_db()
+    row = conn.execute(
+        "SELECT id FROM invoice_photos WHERE id = ?", (photo_id,)
+    ).fetchone()
+    if not row:
+        conn.close()
+        return jsonify({"ok": False, "error": "Không tìm thấy ảnh."}), 404
+    conn.execute(
+        "UPDATE invoice_photos SET original_name = ? WHERE id = ?",
+        (name, photo_id),
+    )
+    conn.commit()
+    conn.close()
     return jsonify({"ok": True})
 
 

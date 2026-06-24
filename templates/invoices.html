@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ shop.name }} - Quản lý hóa đơn</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='invoices.css') }}">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+
+<div id="screen-shops" class="screen active">
+  <div class="topbar">
+    <a class="back-link" href="{{ url_for('index') }}">←</a>
+    <h1>Quản lý hóa đơn</h1>
+  </div>
+  <div class="content">
+    <p class="section-title">Danh sách quán</p>
+    <div class="shop-grid" id="shopGrid"></div>
+    <button class="add-shop-btn" id="btnOpenAddShop">
+      <span>+</span> Thêm quán mới
+    </button>
+  </div>
+</div>
+
+<div id="screen-shop-detail" class="screen">
+  <div class="topbar">
+    <button class="back-btn" id="btnBackShops">←</button>
+    <h1 id="shopDetailTitle">Quán</h1>
+    <button class="action-btn" id="btnPhotoArchive">Lưu trữ ảnh</button>
+    <button class="action-btn" id="btnPrintInvoices">🖨️ In danh sách</button>
+  </div>
+  <div class="content">
+    <div class="print-header">
+      <h2 id="printShopName">Tên Quán</h2>
+      <p id="printFilterDate">Tất cả hóa đơn</p>
+    </div>
+    <div class="invoice-filter">
+      <label for="dateFilter">Ngày:</label>
+      <input type="date" id="dateFilter">
+      <button class="btn-clear-date" id="btnClearDate" type="button">Tất cả</button>
+    </div>
+
+    <div class="invoice-list" id="invoiceList"></div>
+
+    <div class="total-bar">
+      <div class="total-label">
+        Tổng doanh thu
+        <small id="totalLabelSub">Tất cả hóa đơn</small>
+      </div>
+      <div class="total-amount" id="totalAmount">0 đ</div>
+    </div>
+  </div>
+</div>
+
+<div id="screen-invoice-detail" class="screen">
+  <div class="topbar">
+    <button class="back-btn" id="btnBackShopDetail">←</button>
+    <h1 id="invoiceDetailTitle">Hóa đơn</h1>
+    <button class="action-btn" id="btnEditInvoice">Sửa</button>
+    <button class="action-btn danger-action" id="btnDeleteInvoice">Xóa</button>
+  </div>
+  <div class="content" id="invoiceDetailContent"></div>
+</div>
+
+<div id="screen-photo-archive" class="screen">
+  <div class="topbar">
+    <button class="back-btn" id="btnBackFromPhotos">←</button>
+    <h1>Lưu trữ ảnh</h1>
+    <button class="action-btn" id="btnPickArchivePhotos">+ Thêm ảnh</button>
+  </div>
+  <div class="content">
+    <div class="archive-uploader">
+      <input type="file" id="archivePhotoInput" accept="image/*" multiple hidden>
+      <button class="archive-upload-btn" id="btnArchiveUploadBox" type="button">
+        <span>📁</span>
+        <b>Tải nhiều ảnh lên kho</b>
+        <small>Ảnh sẽ được lưu trong thư mục uploads và hiện ở bên dưới</small>
+      </button>
+    </div>
+    <div class="photo-archive-grid" id="photoArchiveGrid"></div>
+  </div>
+</div>
+
+<button class="fab" id="fab" type="button">+</button>
+
+<div class="modal-overlay" id="modalAddShop">
+  <div class="modal-box">
+    <h3 id="shopModalTitle">Thêm quán mới</h3>
+    <input type="hidden" id="editingShopId">
+    <input type="text" id="newShopName" placeholder="Tên quán (vd: Quán 4)" maxlength="30">
+    <input type="text" id="newShopAddress" placeholder="Địa chỉ (tùy chọn)">
+    <div class="form-error" id="addShopError"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" data-close type="button">Hủy</button>
+      <button class="btn-save" id="btnSaveShop" type="button">Thêm quán</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay create-hd-modal" id="modalCreateInvoice">
+  <div class="modal-box">
+    <h3 id="invoiceModalTitle">Tạo hóa đơn mới</h3>
+    <div class="form-row">
+      <label for="invoiceDate">Ngày tạo</label>
+      <input type="date" id="invoiceDate">
+    </div>
+    <div class="form-row">
+      <label for="invoiceNote">Ghi chú (tùy chọn)</label>
+      <input type="text" id="invoiceNote" placeholder="Ghi chú cho hóa đơn...">
+    </div>
+    <div class="form-row">
+      <label for="fileInput">Ảnh hóa đơn (tùy chọn)</label>
+      <input type="file" id="fileInput" accept="image/*" capture="environment">
+      <div class="photo-preview-bar" id="photoPreviewBar" hidden>
+        <img id="previewImg" src="" alt="Ảnh hóa đơn">
+        <button id="btnClearPhoto" type="button">Xóa ảnh</button>
+      </div>
+    </div>
+
+    <div class="items-title">Danh sách hàng</div>
+    <div class="item-header">
+      <span>Trái cây</span>
+      <span>Giá/kg</span>
+      <span>Kg</span>
+      <span></span>
+    </div>
+    <div id="invoiceItemsContainer"></div>
+    <button class="add-item-btn" id="btnAddItem" type="button">+ Thêm mặt hàng</button>
+
+    <div class="form-error" id="invoiceError"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" data-close type="button">Hủy</button>
+      <button class="btn-save" id="btnSaveInvoice" type="button">Lưu hóa đơn</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay lightbox-modal" id="modalLightbox">
+  <span class="lightbox-close" data-close>&times;</span>
+  <img class="lightbox-img" id="lightboxImg" src="" alt="Ảnh hóa đơn phóng to">
+</div>
+
+<!-- PDF Export Template (Positioned off-screen) -->
+<div id="pdfPrintArea" style="display: none; width: 800px; background: #fff; padding: 30px; font-family: 'Segoe UI', Arial, sans-serif; color: #333;">
+  <!-- Header -->
+  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #E8A020; padding-bottom: 15px; margin-bottom: 20px;">
+    <div>
+      <h1 style="color: #E8A020; margin: 0; font-size: 24px; font-weight: bold; letter-spacing: 0.5px;">BÍCH TRÁI CÂY</h1>
+      <p style="margin: 4px 0 0; font-size: 13px; color: #666;">Hệ thống quản lý cửa hàng trái cây sạch</p>
+      <p style="margin: 2px 0 0; font-size: 13px; color: #666;" id="pdfShopAddress"></p>
+    </div>
+    <div style="text-align: right;">
+      <h2 style="margin: 0; font-size: 16px; color: #333;" id="pdfShopName">Quán 1</h2>
+      <p style="margin: 4px 0 0; font-size: 12px; color: #888;" id="pdfPrintDate">Ngày lập: </p>
+    </div>
+  </div>
+
+  <!-- Title -->
+  <div style="text-align: center; margin-bottom: 25px;">
+    <h3 style="margin: 0; font-size: 20px; font-weight: bold; color: #333; text-transform: uppercase; letter-spacing: 0.5px;">BÁO CÁO DOANH THU & DANH SÁCH HÓA ĐƠN</h3>
+    <p style="margin: 6px 0 0; font-size: 13px; color: #666; font-style: italic;" id="pdfFilterPeriod">Thời gian: Tất cả hóa đơn</p>
+  </div>
+
+  <!-- Table -->
+  <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 13px; border: 1px solid #E0D8CC;">
+    <thead>
+      <tr style="background: #FFF3DC; border-top: 1px solid #E0D8CC; border-bottom: 1px solid #E0D8CC;">
+        <th style="padding: 10px 8px; text-align: center; font-weight: bold; width: 45px; border: 1px solid #E0D8CC; color: #c8841a;">STT</th>
+        <th style="padding: 10px 8px; text-align: center; font-weight: bold; width: 85px; border: 1px solid #E0D8CC; color: #c8841a;">Mã HĐ</th>
+        <th style="padding: 10px 8px; text-align: center; font-weight: bold; width: 95px; border: 1px solid #E0D8CC; color: #c8841a;">Ngày tạo</th>
+        <th style="padding: 10px 8px; text-align: left; font-weight: bold; width: 140px; border: 1px solid #E0D8CC; color: #c8841a;">Ghi chú</th>
+        <th style="padding: 10px 8px; text-align: left; font-weight: bold; border: 1px solid #E0D8CC; color: #c8841a;">Chi tiết mặt hàng</th>
+        <th style="padding: 10px 8px; text-align: right; font-weight: bold; width: 120px; border: 1px solid #E0D8CC; color: #c8841a;">Thành tiền</th>
+      </tr>
+    </thead>
+    <tbody id="pdfTableBody">
+      <!-- Điền tự động bằng JS -->
+    </tbody>
+  </table>
+
+  <!-- Total Summary -->
+  <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 40px; padding: 12px 16px; background: #FFF3DC; border: 1px solid #E8A020; border-radius: 6px;">
+    <span style="font-size: 14px; font-weight: bold; color: #C8841A; margin-right: 15px;">TỔNG DOANH THU:</span>
+    <span style="font-size: 18px; font-weight: 900; color: #C8841A;" id="pdfTotalAmount">0 đ</span>
+  </div>
+
+  <!-- Signatures -->
+  <div style="display: flex; justify-content: space-between; margin-top: 30px; padding: 0 40px;">
+    <div style="text-align: center; width: 180px;">
+      <p style="margin: 0; font-size: 13px; font-weight: bold;">Người lập biểu</p>
+      <p style="margin: 4px 0 0; font-size: 11px; color: #888;">(Ký, ghi rõ họ tên)</p>
+      <div style="height: 60px;"></div>
+      <p style="margin: 0; font-size: 13px; color: #888;">........................</p>
+    </div>
+    <div style="text-align: center; width: 180px;">
+      <p style="margin: 0; font-size: 13px; font-weight: bold;">Đại diện cửa hàng</p>
+      <p style="margin: 4px 0 0; font-size: 11px; color: #888;">(Ký, đóng dấu)</p>
+      <div style="height: 60px;"></div>
+      <p style="margin: 0; font-size: 13px; color: #888; font-weight: bold;">Bích Trái Cây</p>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="{{ url_for('static', filename='invoices.js') }}"></script>
+</body>
+</html>

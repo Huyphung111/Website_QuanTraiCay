@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bích Trái Cây - Quản Lý Hoá Đơn</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --primary: #E8A020;
+    --primary-dark: #C8841A;
+    --primary-light: #FFF3DC;
+    --green: #2E7D32;
+    --green-light: #E8F5E9;
+    --red: #C62828;
+    --red-light: #FFEBEE;
+    --bg: #F9F6F0;
+    --white: #FFFFFF;
+    --text: #1A1A1A;
+    --text-sub: #666666;
+    --border: #E0D8CC;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    --shadow-lg: 0 4px 24px rgba(0,0,0,0.13);
+    --radius: 14px;
+    --radius-sm: 8px;
+  }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* =================== SCREEN SYSTEM =================== */
+  .screen { display: none; flex-direction: column; min-height: 100vh; }
+  .screen.active { display: flex; }
+
+  /* =================== TOP BAR =================== */
+  .topbar {
+    background: var(--primary);
+    color: #fff;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(232,160,32,0.3);
+  }
+  .topbar .back-btn {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: #fff;
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+  }
+  .topbar .back-btn:hover { background: rgba(255,255,255,0.35); }
+  .topbar h1 { font-size: 17px; font-weight: 700; flex: 1; }
+  .topbar .action-btn {
+    background: rgba(255,255,255,0.18);
+    border: 1.5px solid rgba(255,255,255,0.5);
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .topbar .action-btn:hover { background: rgba(255,255,255,0.3); }
+
+  /* =================== CONTENT AREA =================== */
+  .content { flex: 1; padding: 16px; overflow-y: auto; }
+
+  /* =================== SCREEN 1: MAIN HOME =================== */
+  .home-header {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    border-radius: var(--radius);
+    padding: 20px;
+    color: #fff;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  .home-header .shop-icon { font-size: 40px; margin-bottom: 8px; }
+  .home-header h2 { font-size: 22px; font-weight: 800; }
+  .home-header p { font-size: 13px; opacity: 0.85; margin-top: 4px; }
+
+  .menu-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .menu-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 22px 16px;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    border: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .menu-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .menu-card .icon { font-size: 36px; margin-bottom: 10px; }
+  .menu-card h3 { font-size: 14px; font-weight: 700; color: var(--text); }
+  .menu-card p { font-size: 12px; color: var(--text-sub); margin-top: 4px; }
+  .menu-card.invoice { border-color: var(--primary-light); background: var(--primary-light); }
+  .menu-card.invoice h3 { color: var(--primary-dark); }
+
+  /* =================== SCREEN 2: DANH SÁCH QUÁN =================== */
+  .section-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-sub);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+    margin-top: 4px;
+  }
+
+  .shop-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .shop-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 18px 14px;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    border: 2px solid var(--border);
+    transition: all 0.2s;
+    position: relative;
+  }
+  .shop-card:hover { border-color: var(--primary); transform: translateY(-2px); }
+  .shop-card .shop-icon-big { font-size: 32px; margin-bottom: 8px; }
+  .shop-card .shop-name { font-size: 15px; font-weight: 700; }
+  .shop-card .shop-meta { font-size: 12px; color: var(--text-sub); margin-top: 3px; }
+  .shop-card .hd-badge {
+    position: absolute;
+    top: 10px; right: 10px;
+    background: var(--primary);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+
+  .add-shop-btn {
+    width: 100%;
+    background: var(--white);
+    border: 2px dashed var(--primary);
+    color: var(--primary-dark);
+    padding: 16px;
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background 0.2s;
+  }
+  .add-shop-btn:hover { background: var(--primary-light); }
+
+  /* Modal thêm quán */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 200;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: var(--white);
+    width: 100%;
+    max-width: 480px;
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding: 24px 20px 32px;
+    animation: slideUp 0.25s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal-box h3 { font-size: 17px; font-weight: 700; margin-bottom: 16px; }
+  .modal-box input {
+    width: 100%;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    font-size: 15px;
+    outline: none;
+    margin-bottom: 14px;
+    transition: border-color 0.2s;
+  }
+  .modal-box input:focus { border-color: var(--primary); }
+  .modal-actions { display: flex; gap: 10px; }
+  .btn-cancel {
+    flex: 1; padding: 13px; border: 2px solid var(--border);
+    background: var(--white); border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 600; cursor: pointer; color: var(--text-sub);
+  }
+  .btn-save {
+    flex: 2; padding: 13px; border: none;
+    background: var(--primary); border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 700; cursor: pointer; color: #fff;
+    transition: background 0.2s;
+  }
+  .btn-save:hover { background: var(--primary-dark); }
+
+  /* =================== SCREEN 3: TRONG QUÁN =================== */
+  .shop-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .action-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 18px 14px;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    border: 2px solid var(--border);
+    transition: all 0.2s;
+  }
+  .action-card:hover { border-color: var(--primary); }
+  .action-card .ac-icon { font-size: 28px; margin-bottom: 8px; }
+  .action-card h3 { font-size: 13px; font-weight: 700; }
+  .action-card.primary-action { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .action-card.primary-action h3 { color: #fff; }
+
+  /* Camera area */
+  .camera-area {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 16px;
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+  }
+  .camera-area h3 { font-size: 14px; font-weight: 700; margin-bottom: 12px; color: var(--text-sub); }
+  .camera-upload {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius-sm);
+    padding: 30px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--bg);
+  }
+  .camera-upload:hover { border-color: var(--primary); background: var(--primary-light); }
+  .camera-upload .cam-icon { font-size: 36px; margin-bottom: 8px; }
+  .camera-upload p { font-size: 13px; color: var(--text-sub); }
+  .camera-upload span { font-size: 12px; color: var(--primary); font-weight: 600; }
+
+  /* Danh sách hoá đơn trong quán */
+  .invoice-filter {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 14px;
+    box-shadow: var(--shadow);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .invoice-filter label { font-size: 13px; font-weight: 600; white-space: nowrap; color: var(--text-sub); }
+  .invoice-filter input[type="date"] {
+    flex: 1;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    font-size: 13px;
+    outline: none;
+    color: var(--text);
+  }
+  .invoice-filter input[type="date"]:focus { border-color: var(--primary); }
+  .btn-clear-date {
+    background: var(--border);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text-sub);
+    white-space: nowrap;
+  }
+
+  .invoice-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+  .invoice-item {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    border-left: 4px solid var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.2s;
+  }
+  .invoice-item:hover { transform: translateX(3px); box-shadow: var(--shadow-lg); }
+  .invoice-item .inv-num {
+    background: var(--primary-light);
+    color: var(--primary-dark);
+    font-weight: 800;
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    min-width: 50px;
+    text-align: center;
+  }
+  .invoice-item .inv-info { flex: 1; }
+  .invoice-item .inv-info .inv-date { font-size: 12px; color: var(--text-sub); }
+  .invoice-item .inv-info .inv-items { font-size: 13px; font-weight: 600; margin-top: 2px; }
+  .invoice-item .inv-amount { font-size: 16px; font-weight: 800; color: var(--primary-dark); white-space: nowrap; }
+  .invoice-item .inv-arrow { color: var(--text-sub); font-size: 16px; }
+
+  /* Tổng tiền bar */
+  .total-bar {
+    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    color: #fff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 16px rgba(232,160,32,0.35);
+  }
+  .total-bar .total-label { font-size: 14px; font-weight: 600; opacity: 0.9; }
+  .total-bar .total-label small { font-size: 11px; display: block; opacity: 0.75; margin-top: 2px; }
+  .total-bar .total-amount { font-size: 22px; font-weight: 900; }
+
+  /* =================== SCREEN 4: CHI TIẾT HOÁ ĐƠN =================== */
+  .hd-header-info {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 16px;
+    box-shadow: var(--shadow);
+    margin-bottom: 14px;
+  }
+  .hd-header-info .hd-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .hd-header-info .hd-row:last-child { margin-bottom: 0; }
+  .hd-header-info .hd-label { font-size: 13px; color: var(--text-sub); }
+  .hd-header-info .hd-value { font-size: 14px; font-weight: 700; }
+  .hd-header-info .hd-value.status {
+    background: var(--green-light);
+    color: var(--green);
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+  }
+
+  .photo-preview {
+    background: var(--white);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    margin-bottom: 14px;
+  }
+  .photo-preview .photo-label {
+    padding: 12px 16px 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-sub);
+  }
+  .photo-preview img {
+    width: 100%;
+    height: 160px;
+    object-fit: cover;
+    display: block;
+  }
+  .photo-preview .no-photo {
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-sub);
+    font-size: 13px;
+    background: var(--bg);
+  }
+
+  /* Bảng chi tiết */
+  .detail-table-wrap {
+    background: var(--white);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .detail-table-wrap .table-title {
+    padding: 14px 16px 10px;
+    font-size: 14px;
+    font-weight: 700;
+    border-bottom: 2px solid var(--bg);
+  }
+  table.detail-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  table.detail-table thead tr {
+    background: var(--bg);
+  }
+  table.detail-table th {
+    padding: 10px 10px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-sub);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  table.detail-table th:last-child, table.detail-table td:last-child { text-align: right; }
+  table.detail-table td { padding: 11px 10px; border-bottom: 1px solid var(--bg); }
+  table.detail-table tr:last-child td { border-bottom: none; }
+  table.detail-table .col-stt { color: var(--text-sub); font-weight: 700; width: 32px; }
+  table.detail-table .col-fruit { font-weight: 600; }
+  table.detail-table .col-price, table.detail-table .col-kg { color: var(--text-sub); }
+  table.detail-table .col-total { font-weight: 800; color: var(--primary-dark); }
+
+  .hd-total-row {
+    background: var(--primary-light);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    border: 2px solid var(--primary);
+  }
+  .hd-total-row .ht-label { font-size: 14px; font-weight: 700; color: var(--primary-dark); }
+  .hd-total-row .ht-amount { font-size: 22px; font-weight: 900; color: var(--primary-dark); }
+
+  /* =================== FAB =================== */
+  .fab {
+    position: fixed;
+    bottom: 24px;
+    right: 20px;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    font-size: 26px;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(232,160,32,0.5);
+    z-index: 150;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s, background 0.2s;
+  }
+  .fab:hover { transform: scale(1.1); background: var(--primary-dark); }
+  .fab.show { display: flex; }
+
+  /* =================== MODAL TẠO HOÁ ĐƠN =================== */
+  .create-hd-modal .modal-box { max-height: 90vh; overflow-y: auto; }
+  .form-row { margin-bottom: 14px; }
+  .form-row label { font-size: 13px; font-weight: 700; display: block; margin-bottom: 6px; color: var(--text-sub); }
+  .form-row input, .form-row select {
+    width: 100%;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    background: var(--white);
+  }
+  .form-row input:focus, .form-row select:focus { border-color: var(--primary); }
+
+  .item-row {
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    margin-bottom: 10px;
+    display: grid;
+    grid-template-columns: 1fr 80px 60px auto;
+    gap: 8px;
+    align-items: center;
+  }
+  .item-row input { font-size: 13px; padding: 8px 10px; }
+  .item-row .remove-item {
+    background: var(--red-light);
+    color: var(--red);
+    border: none;
+    border-radius: 6px;
+    width: 30px; height: 30px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .add-item-btn {
+    width: 100%;
+    background: var(--green-light);
+    color: var(--green);
+    border: 2px dashed var(--green);
+    border-radius: var(--radius-sm);
+    padding: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 14px;
+  }
+  .item-header {
+    display: grid;
+    grid-template-columns: 1fr 80px 60px auto;
+    gap: 8px;
+    margin-bottom: 6px;
+    padding: 0 2px;
+  }
+  .item-header span { font-size: 11px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; }
+
+  /* =================== EMPTY STATE =================== */
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-sub);
+  }
+  .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; }
+
+  /* =================== RESPONSIVE =================== */
+  @media (max-width: 360px) {
+    .shop-grid, .menu-grid { grid-template-columns: 1fr; }
+    .item-row { grid-template-columns: 1fr 70px 50px auto; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- SCREEN 2: DANH SÁCH QUÁN -->
+<!-- ============================================================ -->
+<div id="screen-shops" class="screen active">
+  <div class="topbar">
+    <h1>Quản lý hoá đơn</h1>
+  </div>
+  <div class="content">
+    <p class="section-title">Danh sách quán</p>
+    <div class="shop-grid" id="shop-grid">
+      <div class="shop-card" onclick="openShop('Quán 1')">
+        <span class="hd-badge">8 HĐ</span>
+        <div class="shop-icon-big">🏬</div>
+        <div class="shop-name">Quán 1</div>
+        <div class="shop-meta">157 Nguyễn Hữu Tiến</div>
+      </div>
+      <div class="shop-card" onclick="openShop('Quán 2')">
+        <span class="hd-badge">5 HĐ</span>
+        <div class="shop-icon-big">🏬</div>
+        <div class="shop-name">Quán 2</div>
+        <div class="shop-meta">Chi nhánh 2</div>
+      </div>
+      <div class="shop-card" onclick="openShop('Quán 3')">
+        <span class="hd-badge">3 HĐ</span>
+        <div class="shop-icon-big">🏬</div>
+        <div class="shop-name">Quán 3</div>
+        <div class="shop-meta">Chi nhánh 3</div>
+      </div>
+    </div>
+    <button class="add-shop-btn" onclick="openAddShopModal()">
+      <span style="font-size:20px">+</span> Thêm quán mới
+    </button>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 3: TRONG QUÁN (Hoá đơn + Chụp ảnh) -->
+<!-- ============================================================ -->
+<div id="screen-shop-detail" class="screen">
+  <div class="topbar">
+    <button class="back-btn" onclick="goTo('screen-shops')">←</button>
+    <h1 id="shop-detail-title">Quán 1</h1>
+    <button class="action-btn" onclick="openCreateHDModal()">+ Tạo HĐ</button>
+  </div>
+  <div class="content">
+
+    <!-- Chụp ảnh lưu hoá đơn -->
+    <div class="camera-area">
+      <h3>📸 Chụp ảnh lưu hoá đơn</h3>
+      <div class="camera-upload" onclick="document.getElementById('file-input').click()">
+        <div class="cam-icon">📷</div>
+        <p>Chụp ảnh hoặc chọn từ thư viện</p>
+        <span>Nhấn để mở camera</span>
+        <input type="file" id="file-input" accept="image/*" capture="environment" style="display:none" onchange="previewPhoto(this)">
+      </div>
+      <div id="photo-preview-bar" style="display:none; margin-top:12px;">
+        <img id="preview-img" src="" style="width:100%; border-radius:8px; max-height:160px; object-fit:cover;">
+        <button style="margin-top:8px; width:100%; background:var(--red-light); color:var(--red); border:none; padding:8px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;" onclick="clearPhoto()">Xoá ảnh</button>
+      </div>
+    </div>
+
+    <!-- Lọc ngày -->
+    <div class="invoice-filter">
+      <label>📅 Ngày:</label>
+      <input type="date" id="date-filter" onchange="filterInvoices()">
+      <button class="btn-clear-date" onclick="clearDateFilter()">Tất cả</button>
+    </div>
+
+    <!-- Danh sách hoá đơn -->
+    <div class="invoice-list" id="invoice-list">
+      <!-- Rendered by JS -->
+    </div>
+
+    <!-- Tổng tiền -->
+    <div class="total-bar">
+      <div class="total-label">
+        Tổng doanh thu
+        <small id="total-label-sub">Tất cả hoá đơn</small>
+      </div>
+      <div class="total-amount" id="total-amount">0 đ</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCREEN 4: CHI TIẾT HOÁ ĐƠN -->
+<!-- ============================================================ -->
+<div id="screen-invoice-detail" class="screen">
+  <div class="topbar">
+    <button class="back-btn" onclick="goTo('screen-shop-detail')">←</button>
+    <h1 id="inv-detail-title">Hoá đơn #HD001</h1>
+    <button class="action-btn" onclick="deleteInvoice()" style="background:rgba(220,53,69,0.25); border-color:rgba(255,255,255,0.4);">Xoá</button>
+  </div>
+  <div class="content" id="invoice-detail-content">
+    <!-- Rendered by JS -->
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- FAB -->
+<!-- ============================================================ -->
+<button class="fab" id="fab" onclick="openCreateHDModal()">+</button>
+
+<!-- ============================================================ -->
+<!-- MODAL: THÊM QUÁN -->
+<!-- ============================================================ -->
+<div class="modal-overlay" id="modal-add-shop">
+  <div class="modal-box">
+    <h3>Thêm quán mới</h3>
+    <input type="text" id="new-shop-name" placeholder="Tên quán (vd: Quán 4)" maxlength="30">
+    <input type="text" id="new-shop-address" placeholder="Địa chỉ (tuỳ chọn)">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('modal-add-shop')">Huỷ</button>
+      <button class="btn-save" onclick="addShop()">Thêm quán</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL: TẠO HOÁ ĐƠN -->
+<!-- ============================================================ -->
+<div class="modal-overlay create-hd-modal" id="modal-create-hd">
+  <div class="modal-box">
+    <h3>Tạo hoá đơn mới</h3>
+    <div class="form-row">
+      <label>Ngày tạo</label>
+      <input type="date" id="hd-date" value="">
+    </div>
+    <div class="form-row">
+      <label>Ghi chú (tuỳ chọn)</label>
+      <input type="text" id="hd-note" placeholder="Ghi chú cho hoá đơn...">
+    </div>
+
+    <div style="font-size:13px; font-weight:700; color:var(--text-sub); margin-bottom:8px;">Danh sách hàng</div>
+    <div class="item-header">
+      <span>Trái cây</span>
+      <span>Giá/kg</span>
+      <span>Kg</span>
+      <span></span>
+    </div>
+    <div id="hd-items-container">
+      <!-- items added by JS -->
+    </div>
+    <button class="add-item-btn" onclick="addItemRow()">+ Thêm mặt hàng</button>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('modal-create-hd')">Huỷ</button>
+      <button class="btn-save" onclick="saveInvoice()">Lưu hoá đơn</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- JAVASCRIPT -->
+<!-- ============================================================ -->
+<script>
+  // -------- DATA --------
+  let currentShop = null;
+  let currentInvoiceId = null;
+
+  const shops = [
+    { id: 1, name: 'Quán 1', address: '157 Nguyễn Hữu Tiến' },
+    { id: 2, name: 'Quán 2', address: 'Chi nhánh 2' },
+    { id: 3, name: 'Quán 3', address: 'Chi nhánh 3' },
+  ];
+
+  // Mẫu dữ liệu hoá đơn
+  const invoicesDB = {
+    'Quán 1': [
+      { id: 'HD001', date: '2025-06-20', note: '', photo: null, items: [
+        { fruit: 'Cóc chín', price: 45000, kg: 5 },
+        { fruit: 'Xoài Cát', price: 60000, kg: 3 },
+        { fruit: 'Ổi', price: 30000, kg: 2 },
+      ]},
+      { id: 'HD002', date: '2025-06-22', note: 'Khách sỉ', photo: null, items: [
+        { fruit: 'Dưa hấu', price: 15000, kg: 20 },
+        { fruit: 'Nho xanh', price: 80000, kg: 2 },
+      ]},
+      { id: 'HD003', date: '2025-06-22', note: '', photo: null, items: [
+        { fruit: 'Chuối già', price: 25000, kg: 10 },
+      ]},
+      { id: 'HD004', date: '2025-06-24', note: 'Giao hàng chiều', photo: null, items: [
+        { fruit: 'Vải thiều', price: 55000, kg: 4 },
+        { fruit: 'Chôm chôm', price: 35000, kg: 3 },
+      ]},
+    ],
+    'Quán 2': [
+      { id: 'HD001', date: '2025-06-21', note: '', photo: null, items: [
+        { fruit: 'Thanh long', price: 20000, kg: 8 },
+      ]},
+      { id: 'HD002', date: '2025-06-24', note: '', photo: null, items: [
+        { fruit: 'Sầu riêng', price: 120000, kg: 2 },
+        { fruit: 'Bơ', price: 45000, kg: 3 },
+      ]},
+    ],
+    'Quán 3': [
+      { id: 'HD001', date: '2025-06-23', note: '', photo: null, items: [
+        { fruit: 'Cam Vinh', price: 40000, kg: 6 },
+        { fruit: 'Quýt đường', price: 35000, kg: 4 },
+      ]},
+    ],
+  };
+
+  // -------- NAVIGATION --------
+  function goTo(screenId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(screenId).classList.add('active');
+    const fab = document.getElementById('fab');
+    fab.classList.toggle('show', screenId === 'screen-shop-detail');
+    window.scrollTo(0, 0);
+  }
+
+  function openShop(shopName) {
+    currentShop = shopName;
+    document.getElementById('shop-detail-title').textContent = shopName;
+    document.getElementById('date-filter').value = '';
+    renderInvoiceList(shopName, null);
+    goTo('screen-shop-detail');
+  }
+
+  // -------- INVOICE LIST --------
+  function getInvoices(shopName) {
+    return invoicesDB[shopName] || [];
+  }
+
+  function calcTotal(invoice) {
+    return invoice.items.reduce((s, i) => s + i.price * i.kg, 0);
+  }
+
+  function formatMoney(n) {
+    return n.toLocaleString('vi-VN') + ' đ';
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return '';
+    const [y, m, d] = dateStr.split('-');
+    return `${d}/${m}/${y}`;
+  }
+
+  function renderInvoiceList(shopName, filterDate) {
+    const list = document.getElementById('invoice-list');
+    const totalEl = document.getElementById('total-amount');
+    const totalLabelSub = document.getElementById('total-label-sub');
+    let invoices = getInvoices(shopName);
+
+    if (filterDate) {
+      invoices = invoices.filter(inv => inv.date === filterDate);
+      totalLabelSub.textContent = `Ngày ${formatDate(filterDate)}`;
+    } else {
+      totalLabelSub.textContent = 'Tất cả hoá đơn';
+    }
+
+    if (invoices.length === 0) {
+      list.innerHTML = `<div class="empty-state"><div class="empty-icon">🧾</div><p>Chưa có hoá đơn nào${filterDate ? ' ngày này' : ''}.</p></div>`;
+      totalEl.textContent = '0 đ';
+      return;
+    }
+
+    let total = 0;
+    list.innerHTML = invoices.map(inv => {
+      const amount = calcTotal(inv);
+      total += amount;
+      const itemSummary = inv.items.map(i => i.fruit).join(', ');
+      return `
+        <div class="invoice-item" onclick="openInvoiceDetail('${inv.id}')">
+          <div class="inv-num">${inv.id}</div>
+          <div class="inv-info">
+            <div class="inv-date">${formatDate(inv.date)}${inv.note ? ' · ' + inv.note : ''}</div>
+            <div class="inv-items">${itemSummary}</div>
+          </div>
+          <div class="inv-amount">${formatMoney(amount)}</div>
+          <div class="inv-arrow">›</div>
+        </div>`;
+    }).join('');
+
+    totalEl.textContent = formatMoney(total);
+  }
+
+  function filterInvoices() {
+    const date = document.getElementById('date-filter').value;
+    renderInvoiceList(currentShop, date || null);
+  }
+
+  function clearDateFilter() {
+    document.getElementById('date-filter').value = '';
+    renderInvoiceList(currentShop, null);
+  }
+
+  // -------- INVOICE DETAIL --------
+  function openInvoiceDetail(invId) {
+    currentInvoiceId = invId;
+    const invoices = getInvoices(currentShop);
+    const inv = invoices.find(i => i.id === invId);
+    if (!inv) return;
+
+    document.getElementById('inv-detail-title').textContent = `Hoá đơn #${inv.id}`;
+
+    let total = calcTotal(inv);
+    let rows = inv.items.map((item, idx) => `
+      <tr>
+        <td class="col-stt">${idx + 1}</td>
+        <td class="col-fruit">${item.fruit}</td>
+        <td class="col-price">${item.price.toLocaleString('vi-VN')}</td>
+        <td class="col-kg">${item.kg}</td>
+        <td class="col-total">${formatMoney(item.price * item.kg)}</td>
+      </tr>`).join('');
+
+    const photoHTML = inv.photo
+      ? `<img src="${inv.photo}">`
+      : `<div class="no-photo">Chưa có ảnh đính kèm</div>`;
+
+    document.getElementById('invoice-detail-content').innerHTML = `
+      <div class="hd-header-info">
+        <div class="hd-row">
+          <span class="hd-label">Mã hoá đơn</span>
+          <span class="hd-value">#${inv.id}</span>
+        </div>
+        <div class="hd-row">
+          <span class="hd-label">Quán</span>
+          <span class="hd-value">${currentShop}</span>
+        </div>
+        <div class="hd-row">
+          <span class="hd-label">Ngày tạo</span>
+          <span class="hd-value">${formatDate(inv.date)}</span>
+        </div>
+        ${inv.note ? `<div class="hd-row"><span class="hd-label">Ghi chú</span><span class="hd-value">${inv.note}</span></div>` : ''}
+        <div class="hd-row">
+          <span class="hd-label">Trạng thái</span>
+          <span class="hd-value status">Đã lưu</span>
+        </div>
+      </div>
+
+      <div class="photo-preview">
+        <div class="photo-label">Ảnh hoá đơn</div>
+        ${photoHTML}
+      </div>
+
+      <div class="detail-table-wrap">
+        <div class="table-title">Chi tiết hàng hoá</div>
+        <table class="detail-table">
+          <thead>
+            <tr>
+              <th>STT</th>
+              <th>Trái cây</th>
+              <th>Giá/kg</th>
+              <th>Kg</th>
+              <th>Thành tiền</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+
+      <div class="hd-total-row">
+        <div class="ht-label">Tổng tiền hoá đơn</div>
+        <div class="ht-amount">${formatMoney(total)}</div>
+      </div>
+    `;
+
+    goTo('screen-invoice-detail');
+  }
+
+  function deleteInvoice() {
+    if (!confirm(`Xoá hoá đơn #${currentInvoiceId}?`)) return;
+    const invoices = invoicesDB[currentShop];
+    const idx = invoices.findIndex(i => i.id === currentInvoiceId);
+    if (idx !== -1) invoices.splice(idx, 1);
+    goTo('screen-shop-detail');
+    renderInvoiceList(currentShop, null);
+  }
+
+  // -------- PHOTO --------
+  function previewPhoto(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('preview-img').src = e.target.result;
+      document.getElementById('photo-preview-bar').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function clearPhoto() {
+    document.getElementById('photo-preview-bar').style.display = 'none';
+    document.getElementById('preview-img').src = '';
+    document.getElementById('file-input').value = '';
+  }
+
+  // -------- ADD SHOP --------
+  function openAddShopModal() { openModal('modal-add-shop'); }
+
+  function addShop() {
+    const name = document.getElementById('new-shop-name').value.trim();
+    if (!name) { alert('Vui lòng nhập tên quán!'); return; }
+    const address = document.getElementById('new-shop-address').value.trim() || 'Chưa cập nhật';
+
+    if (!invoicesDB[name]) invoicesDB[name] = [];
+
+    const grid = document.getElementById('shop-grid');
+    const card = document.createElement('div');
+    card.className = 'shop-card';
+    card.innerHTML = `
+      <span class="hd-badge">0 HĐ</span>
+      <div class="shop-icon-big">🏬</div>
+      <div class="shop-name">${name}</div>
+      <div class="shop-meta">${address}</div>`;
+    card.onclick = () => openShop(name);
+    grid.appendChild(card);
+
+    document.getElementById('new-shop-name').value = '';
+    document.getElementById('new-shop-address').value = '';
+    closeModal('modal-add-shop');
+  }
+
+  // -------- CREATE INVOICE --------
+  function openCreateHDModal() {
+    document.getElementById('hd-items-container').innerHTML = '';
+    document.getElementById('hd-note').value = '';
+    // Set default date = today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('hd-date').value = today;
+    addItemRow();
+    openModal('modal-create-hd');
+  }
+
+  let itemCounter = 0;
+  function addItemRow() {
+    itemCounter++;
+    const id = 'item-' + itemCounter;
+    const container = document.getElementById('hd-items-container');
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    row.id = id;
+    row.innerHTML = `
+      <input type="text" placeholder="Tên trái cây" class="item-fruit">
+      <input type="number" placeholder="Giá/kg" class="item-price" min="0">
+      <input type="number" placeholder="Kg" class="item-kg" min="0" step="0.1">
+      <button class="remove-item" onclick="document.getElementById('${id}').remove()">✕</button>`;
+    container.appendChild(row);
+  }
+
+  function saveInvoice() {
+    const date = document.getElementById('hd-date').value;
+    const note = document.getElementById('hd-note').value.trim();
+    if (!date) { alert('Vui lòng chọn ngày!'); return; }
+
+    const rows = document.querySelectorAll('#hd-items-container .item-row');
+    const items = [];
+    let valid = true;
+    rows.forEach(row => {
+      const fruit = row.querySelector('.item-fruit').value.trim();
+      const price = parseFloat(row.querySelector('.item-price').value);
+      const kg = parseFloat(row.querySelector('.item-kg').value);
+      if (!fruit || isNaN(price) || isNaN(kg)) { valid = false; return; }
+      items.push({ fruit, price, kg });
+    });
+
+    if (!valid || items.length === 0) { alert('Vui lòng điền đủ thông tin hàng hoá!'); return; }
+
+    if (!invoicesDB[currentShop]) invoicesDB[currentShop] = [];
+    const existing = invoicesDB[currentShop];
+    const newId = 'HD' + String(existing.length + 1).padStart(3, '0');
+
+    const photoEl = document.getElementById('preview-img');
+    const photo = photoEl.src && photoEl.src !== window.location.href ? photoEl.src : null;
+
+    existing.push({ id: newId, date, note, photo, items });
+    closeModal('modal-create-hd');
+    renderInvoiceList(currentShop, null);
+  }
+
+  // -------- MODAL HELPERS --------
+  function openModal(id) {
+    document.getElementById(id).classList.add('open');
+  }
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+  }
+  // Close modal when clicking overlay
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', e => {
+      if (e.target === overlay) overlay.classList.remove('open');
+    });
+  });
+</script>
+</body>
+</html>
