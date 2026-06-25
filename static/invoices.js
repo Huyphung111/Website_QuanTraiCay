@@ -258,20 +258,46 @@
     grid.innerHTML = photos.map(function (photo) {
       return [
         '<div class="archive-photo-card" data-id="' + photo.id + '" data-name="' + escapeHtml(photo.original_name) + '">',
-        '<button class="delete-photo-btn" data-action="delete-photo" title="Xóa ảnh" type="button">🗑️</button>',
+        '<button class="delete-photo-btn js-delete-photo" title="Xóa ảnh" type="button">🗑️</button>',
         '<a href="' + escapeHtml(photo.url) + '" download>',
         '<img src="' + escapeHtml(photo.url) + '" alt="' + escapeHtml(photo.original_name) + '">',
         '</a>',
         '<div class="archive-photo-meta">',
         '<div class="photo-name-wrapper">',
         '<b class="photo-name">' + escapeHtml(photo.original_name) + '</b>',
-        '<button class="edit-photo-name-btn" data-action="edit-photo-name" title="Sửa tên" type="button">✏️</button>',
+        '<button class="edit-photo-name-btn js-edit-photo-name" title="Sửa tên" type="button">✏️</button>',
         '</div>',
         '<span>' + formatFileSize(photo.file_size) + ' · ' + escapeHtml(photo.source === "invoice" ? "Ảnh hóa đơn" : "Kho ảnh") + '</span>',
         '</div>',
         '</div>'
       ].join("");
     }).join("");
+
+    // Gắn sự kiện click trực tiếp lên từng nút sửa tên
+    grid.querySelectorAll(".js-edit-photo-name").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var card = btn.closest(".archive-photo-card");
+        if (!card) return;
+        var photoId = parseInt(card.dataset.id, 10);
+        var photoName = card.dataset.name;
+        editPhotoName(photoId, photoName);
+      });
+    });
+
+    // Gắn sự kiện click trực tiếp lên từng nút xóa ảnh
+    grid.querySelectorAll(".js-delete-photo").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var card = btn.closest(".archive-photo-card");
+        if (!card) return;
+        var photoId = parseInt(card.dataset.id, 10);
+        var photoName = card.dataset.name;
+        deletePhoto(photoId, photoName);
+      });
+    });
   }
 
   function loadPhotoArchive() {
@@ -659,12 +685,16 @@
   }
 
   shopGrid.addEventListener("click", function (e) {
-    var card = e.target.closest(".shop-card");
+    var target = e.target;
+    if (target.nodeType === 3) {
+      target = target.parentNode;
+    }
+    var card = target.closest(".shop-card");
     if (!card) return;
     var shopId = parseInt(card.dataset.id, 10);
     var shop = shopsCache.filter(function (item) { return item.id === shopId; })[0];
     if (!shop) return;
-    var actionEl = e.target.closest("[data-action]");
+    var actionEl = target.closest("[data-action]");
     var action = actionEl ? actionEl.dataset.action : null;
     if (action === "edit") {
       openEditShopModal(shop);
@@ -717,23 +747,6 @@
   });
   document.getElementById("archivePhotoInput").addEventListener("change", function (e) {
     uploadArchivePhotos(e.target.files);
-  });
-
-  document.getElementById("photoArchiveGrid").addEventListener("click", function (e) {
-    var card = e.target.closest(".archive-photo-card");
-    if (!card) return;
-    var photoId = parseInt(card.dataset.id, 10);
-    var photoName = card.dataset.name;
-    var actionEl = e.target.closest("[data-action]");
-    var action = actionEl ? actionEl.dataset.action : null;
-    if (action === "delete-photo") {
-      deletePhoto(photoId, photoName);
-      return;
-    }
-    if (action === "edit-photo-name") {
-      editPhotoName(photoId, photoName);
-      return;
-    }
   });
 
   document.getElementById("invoiceDetailContent").addEventListener("click", function (e) {
