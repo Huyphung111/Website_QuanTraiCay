@@ -403,17 +403,38 @@ def remember_invoice_photo(conn, filename, original_name="", source="archive", i
         return
     path = os.path.join(UPLOAD_DIR, filename)
     file_size = os.path.getsize(path) if os.path.isfile(path) else 0
+
+    # Lấy extension của file
+    ext = ""
+    orig_name_to_use = original_name or filename
+    if "." in orig_name_to_use:
+        ext = "." + orig_name_to_use.rsplit(".", 1)[1].lower()
+
+    # Sinh tên tự động theo định dạng ngay[D]thang[M]nam[Y]ban[STT].[ext]
+    now = datetime.now()
+    date_str = f"ngay{now.day}thang{now.month}nam{now.year}"
+    today_prefix = now.strftime("%Y-%m-%d")
+
+    # Đếm số lượng ảnh được tải lên trong ngày hôm nay để lấy số thứ tự
+    count_row = conn.execute(
+        "SELECT COUNT(*) as cnt FROM invoice_photos WHERE created_at LIKE ?",
+        (today_prefix + "%",)
+    ).fetchone()
+    seq = (count_row["cnt"] if count_row else 0) + 1
+
+    auto_name = f"{date_str}ban{seq}{ext}"
+
     conn.execute(
         """INSERT INTO invoice_photos
            (filename, original_name, source, invoice_id, file_size, created_at)
            VALUES (?, ?, ?, ?, ?, ?)""",
         (
             filename,
-            nfc(original_name) or filename,
+            auto_name,
             source,
             invoice_id,
             file_size,
-            datetime.now().isoformat(timespec="seconds"),
+            now.isoformat(timespec="seconds"),
         ),
     )
 
@@ -1194,6 +1215,45 @@ def api_export_pdf(shop_id):
     date_safe = ('_' + date_filter) if date_filter else ''
     fname = 'Danh_sach_hoa_don_' + shop_safe + date_safe + '.pdf'
     return FlaskResponse(buf.read(), mimetype='application/pdf', headers={'Content-Disposition': 'attachment; filename=' + fname})
+
+
+@app.route("/api/invoice-photos/download-all", methods=["GET"])
+@admin_required
+def api_download_all_photos():
+    """Tải toàn bộ ảnh trong kho dưới dạng file zip, đổi tên tương ứng với original_name."""
+    import zipfile
+    from io import BytesIO
+    from flask import send_file
+
+    conn = get_db()
+    rows = conn.execute("SELECT filename, original_name FROM invoice_photos").fetchall()
+    conn.close()
+
+    if not rows:
+        return jsonify({"ok": False, "error": "Không có ảnh nào để tải."}), 400
+
+    memory_file = BytesIO()
+    with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for row in rows:
+            filename = row["filename"]
+            original_name = row["original_name"]
+            file_path = os.path.join(UPLOAD_DIR, filename)
+            
+            if os.path.isfile(file_path):
+                # Đổi tên file trong file zip tương ứng với original_name
+                arcname = original_name or filename
+                if "." not in arcname and "." in filename:
+                    ext = filename.rsplit(".", 1)[1].lower()
+                    arcname = f"{arcname}.{ext}"
+                zip_file.write(file_path, arcname)
+                
+    memory_file.seek(0)
+    now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    zip_name = f"Kho_anh_Bich_Trai_Cay_{now_str}.zip"
+    
+    response = send_file(memory_file, mimetype="application/zip")
+    response.headers["Content-Disposition"] = f"attachment; filename={zip_name}"
+    return response
 
 
 # Tạo bảng + nạp dữ liệu mẫu ngay khi import.

@@ -276,9 +276,15 @@
   function loadPhotoArchive() {
     var grid = document.getElementById("photoArchiveGrid");
     grid.innerHTML = '<div class="loading">Đang tải kho ảnh...</div>';
+    var countEl = document.getElementById("photoArchiveCount");
+    if (countEl) countEl.textContent = "";
     return api("/api/invoice-photos")
       .then(function (data) {
-        renderPhotoArchive(data.photos || []);
+        var photos = data.photos || [];
+        if (countEl) {
+          countEl.textContent = "(" + photos.length + " ảnh)";
+        }
+        renderPhotoArchive(photos);
       })
       .catch(function (err) {
         grid.innerHTML = '<div class="empty-state"><p>' + escapeHtml(err.message) + '</p></div>';
@@ -604,6 +610,9 @@
   document.getElementById("btnBackShops").addEventListener("click", function () { goTo("screen-shops"); loadShops(); });
   document.getElementById("btnBackShopDetail").addEventListener("click", function () { goTo("screen-shop-detail"); });
   document.getElementById("btnBackFromPhotos").addEventListener("click", function () { goTo("screen-shop-detail"); });
+  document.getElementById("btnDownloadAllPhotos").addEventListener("click", function () {
+    window.open("/api/invoice-photos/download-all", "_blank");
+  });
   document.getElementById("btnPrintInvoices").addEventListener("click", generatePDF);
   document.getElementById("btnPhotoArchive").addEventListener("click", openPhotoArchive);
   document.getElementById("fab").addEventListener("click", openCreateInvoiceModal);

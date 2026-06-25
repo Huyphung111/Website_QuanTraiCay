@@ -66,8 +66,11 @@
 <div id="screen-photo-archive" class="screen">
   <div class="topbar">
     <button class="back-btn" id="btnBackFromPhotos">←</button>
-    <h1>Lưu trữ ảnh</h1>
-    <button class="action-btn" id="btnPickArchivePhotos">+ Thêm ảnh</button>
+    <h1>Lưu trữ ảnh <span id="photoArchiveCount" style="font-size: 14px; font-weight: normal; opacity: 0.8; margin-left: 8px;"></span></h1>
+    <div style="display: flex; gap: 8px;">
+      <button class="action-btn" id="btnDownloadAllPhotos">📥 Tải tất cả</button>
+      <button class="action-btn" id="btnPickArchivePhotos">+ Thêm ảnh</button>
+    </div>
   </div>
   <div class="content">
     <div class="archive-uploader">
