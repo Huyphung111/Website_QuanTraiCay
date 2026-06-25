@@ -29,6 +29,7 @@
     <h1 id="shopDetailTitle">Quán</h1>
     <button class="action-btn" id="btnPhotoArchive">Lưu trữ ảnh</button>
     <button class="action-btn" id="btnPrintInvoices">🖨️ In danh sách</button>
+    <button class="action-btn danger-action" id="btnDeleteAllInvoices">🗑️ Xóa toàn bộ</button>
   </div>
   <div class="content">
     <div class="print-header">
@@ -142,6 +143,42 @@
 <div class="modal-overlay lightbox-modal" id="modalLightbox">
   <span class="lightbox-close" data-close>&times;</span>
   <img class="lightbox-img" id="lightboxImg" src="" alt="Ảnh hóa đơn phóng to">
+</div>
+
+<!-- Modal: Xác nhận xóa toàn bộ hóa đơn -->
+<div class="modal-overlay" id="modalConfirmDeleteAll">
+  <div class="modal-box">
+    <h3>Xóa toàn bộ hóa đơn</h3>
+    <p style="margin: 12px 0; line-height: 1.5; color: #555;">
+      Bạn có chắc chắn muốn xóa toàn bộ hóa đơn của quán này không?<br>
+      Thao tác này dùng để <strong>làm sạch dữ liệu cho tháng mới</strong> và <strong>không thể hoàn tác</strong>!
+    </p>
+    <div class="modal-actions">
+      <button class="btn-cancel" data-close type="button">Hủy</button>
+      <button class="btn-save danger-action" id="btnProceedDeleteAll" type="button" style="background: #dc3545; color: white;">Tiếp tục</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Đếm ngược và xóa vĩnh viễn -->
+<div class="modal-overlay" id="modalCountdownDeleteAll">
+  <div class="modal-box">
+    <h3>Xác nhận xóa vĩnh viễn</h3>
+    <div id="countdownTimerContainer" style="text-align: center; margin: 15px 0 5px; font-weight: bold; color: #dc3545; font-size: 16px;">
+      Vui lòng đợi <span id="countdownSeconds">5</span> giây...
+    </div>
+    <div id="countdownBlurredContent" style="transition: filter 0.3s ease, opacity 0.3s ease; filter: blur(4px); opacity: 0.5; pointer-events: none; text-align: center;">
+      <p style="margin-bottom: 15px; color: #333;">
+        Nhấp vào nút bên dưới để đồng ý xóa vĩnh viễn toàn bộ hóa đơn.
+      </p>
+      <button class="btn-save" id="btnFinalDeleteAll" type="button" style="background: #dc3545; color: white; width: 100%; padding: 10px; font-weight: bold; border-radius: 6px; cursor: pointer; border: none;">
+        🔴 ĐỒNG Ý XÓA TOÀN BỘ HÓA ĐƠN
+      </button>
+    </div>
+    <div class="modal-actions" style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px; display: flex; justify-content: flex-end;">
+      <button class="btn-cancel" id="btnCancelFinalDeleteAll" type="button">Hủy</button>
+    </div>
+  </div>
 </div>
 
 <!-- PDF Export Template (Positioned off-screen) -->

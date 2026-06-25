@@ -1002,6 +1002,27 @@ def api_delete_invoice(shop_id, invoice_id):
     return jsonify({"ok": True})
 
 
+@app.route("/api/invoice-shops/<int:shop_id>/invoices/delete-all", methods=["POST"])
+@admin_required
+def api_delete_all_invoices(shop_id):
+    conn = get_db()
+    shop = conn.execute("SELECT * FROM invoice_shops WHERE id = ?", (shop_id,)).fetchone()
+    if not shop:
+        conn.close()
+        return jsonify({"ok": False, "error": "Không tìm thấy quán."}), 404
+
+    invoice_rows = conn.execute("SELECT id FROM invoices WHERE shop_id = ?", (shop_id,)).fetchall()
+    invoice_ids = [r["id"] for r in invoice_rows]
+    if invoice_ids:
+        placeholders = ",".join("?" for _ in invoice_ids)
+        conn.execute(f"UPDATE invoice_photos SET invoice_id = NULL WHERE invoice_id IN ({placeholders})", invoice_ids)
+        conn.execute(f"DELETE FROM invoice_items WHERE invoice_id IN ({placeholders})", invoice_ids)
+        conn.execute("DELETE FROM invoices WHERE shop_id = ?", (shop_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
 @app.route("/api/invoice-photos", methods=["GET"])
 @admin_required
 def api_invoice_photos():

@@ -10,6 +10,7 @@
   var photoCleared = false;
   var invoicesCache = [];
   var invoicesTotalCache = 0;
+  var deleteAllInterval = null;
 
   var shopGrid = document.getElementById("shopGrid");
   var invoiceList = document.getElementById("invoiceList");
@@ -560,6 +561,83 @@
     });
   }
 
+  function openConfirmDeleteAll() {
+    if (!currentShop) return;
+    openModal("modalConfirmDeleteAll");
+  }
+
+  function proceedToDeleteAll() {
+    closeModal("modalConfirmDeleteAll");
+    openModal("modalCountdownDeleteAll");
+
+    var countdownSeconds = document.getElementById("countdownSeconds");
+    var countdownTimerContainer = document.getElementById("countdownTimerContainer");
+    var countdownBlurredContent = document.getElementById("countdownBlurredContent");
+    var btnFinalDeleteAll = document.getElementById("btnFinalDeleteAll");
+
+    countdownSeconds.textContent = "5";
+    countdownTimerContainer.innerHTML = 'Vui lòng đợi <span id="countdownSeconds">5</span> giây...';
+    countdownTimerContainer.style.color = '#dc3545';
+
+    countdownBlurredContent.style.filter = "blur(4px)";
+    countdownBlurredContent.style.opacity = "0.5";
+    countdownBlurredContent.style.pointerEvents = "none";
+    btnFinalDeleteAll.disabled = true;
+    btnFinalDeleteAll.textContent = "🔴 ĐỒNG Ý XÓA TOÀN BỘ HÓA ĐƠN";
+
+    var count = 5;
+    if (deleteAllInterval) {
+      clearInterval(deleteAllInterval);
+    }
+
+    deleteAllInterval = setInterval(function () {
+      count--;
+      var secondsSpan = document.getElementById("countdownSeconds");
+      if (secondsSpan) {
+        secondsSpan.textContent = count;
+      }
+      if (count <= 0) {
+        clearInterval(deleteAllInterval);
+        deleteAllInterval = null;
+        countdownTimerContainer.innerHTML = 'Nút xóa đã sẵn sàng!';
+        countdownTimerContainer.style.color = '#2E7D32';
+        countdownBlurredContent.style.filter = "none";
+        countdownBlurredContent.style.opacity = "1";
+        countdownBlurredContent.style.pointerEvents = "auto";
+        btnFinalDeleteAll.disabled = false;
+      }
+    }, 1000);
+  }
+
+  function cancelDeleteAll() {
+    if (deleteAllInterval) {
+      clearInterval(deleteAllInterval);
+      deleteAllInterval = null;
+    }
+    closeModal("modalConfirmDeleteAll");
+    closeModal("modalCountdownDeleteAll");
+  }
+
+  function finalDeleteAll() {
+    if (!currentShop) return;
+    var btn = document.getElementById("btnFinalDeleteAll");
+    btn.disabled = true;
+    btn.textContent = "ĐANG XÓA...";
+
+    api("/api/invoice-shops/" + currentShop.id + "/invoices/delete-all", {
+      method: "POST"
+    }).then(function () {
+      cancelDeleteAll();
+      showToast("Đã xóa toàn bộ hóa đơn.", "ok");
+      loadInvoices(document.getElementById("dateFilter").value || null);
+      loadShops();
+    }).catch(function (err) {
+      showToast(err.message, "error");
+      btn.disabled = false;
+      btn.textContent = "🔴 ĐỒNG Ý XÓA TOÀN BỘ HÓA ĐƠN";
+    });
+  }
+
   function previewPhoto() {
     var fileInput = document.getElementById("fileInput");
     var file = fileInput.files[0];
@@ -620,6 +698,10 @@
   document.getElementById("btnSaveInvoice").addEventListener("click", saveInvoice);
   document.getElementById("btnEditInvoice").addEventListener("click", openEditInvoiceModal);
   document.getElementById("btnDeleteInvoice").addEventListener("click", deleteInvoice);
+  document.getElementById("btnDeleteAllInvoices").addEventListener("click", openConfirmDeleteAll);
+  document.getElementById("btnProceedDeleteAll").addEventListener("click", proceedToDeleteAll);
+  document.getElementById("btnCancelFinalDeleteAll").addEventListener("click", cancelDeleteAll);
+  document.getElementById("btnFinalDeleteAll").addEventListener("click", finalDeleteAll);
   document.getElementById("dateFilter").addEventListener("change", function (e) { loadInvoices(e.target.value || null); });
   document.getElementById("btnClearDate").addEventListener("click", function () {
     document.getElementById("dateFilter").value = "";
@@ -665,6 +747,9 @@
     overlay.addEventListener("click", function (e) {
       if (e.target === overlay || e.target.hasAttribute("data-close")) {
         overlay.classList.remove("open");
+        if (overlay.id === "modalCountdownDeleteAll" || overlay.id === "modalConfirmDeleteAll") {
+          cancelDeleteAll();
+        }
       }
     });
   });
@@ -673,6 +758,9 @@
     if (e.key === "Escape") {
       document.querySelectorAll(".modal-overlay.open").forEach(function (overlay) {
         overlay.classList.remove("open");
+        if (overlay.id === "modalCountdownDeleteAll" || overlay.id === "modalConfirmDeleteAll") {
+          cancelDeleteAll();
+        }
       });
     }
   });
