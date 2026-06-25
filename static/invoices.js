@@ -229,88 +229,23 @@
 
   function formatInvoiceItems(items) {
     return (items || []).map(function (item) {
-      return escapeHtml(item.fruit) + ' (' + Number(item.kg).toLocaleString('vi-VN') + ' kg × ' + Number(item.price).toLocaleString('vi-VN') + ' đ)';
-    }).join('<br>');
+      return escapeHtml(item.fruit);
+    }).join(', ');
   }
 
   function generatePDF() {
     if (!currentShop) return;
     if (!invoicesCache || !invoicesCache.length) {
-      showToast("Không có hóa đơn nào để xuất PDF.", "error");
+      showToast("Không có hóa đơn nào để in.", "error");
       return;
     }
 
-    var address = currentShop.address || "Chưa cập nhật";
-    document.getElementById("pdfShopName").textContent = currentShop.name;
-    document.getElementById("pdfShopAddress").textContent = "Địa chỉ: " + address;
-
-    var now = new Date();
-    var dateStr = now.getDate().toString().padStart(2, '0') + '/' + 
-                  (now.getMonth() + 1).toString().padStart(2, '0') + '/' + 
-                  now.getFullYear() + ' ' + 
-                  now.getHours().toString().padStart(2, '0') + ':' + 
-                  now.getMinutes().toString().padStart(2, '0');
-    document.getElementById("pdfPrintDate").textContent = "Ngày lập: " + dateStr;
-
-    var filterDate = document.getElementById("dateFilter").value;
-    document.getElementById("pdfFilterPeriod").textContent = filterDate 
-      ? "Thời gian: Ngày " + formatDate(filterDate) 
-      : "Thời gian: Tất cả hóa đơn";
-
-    var html = invoicesCache.map(function (inv, idx) {
-      var itemsStr = formatInvoiceItems(inv.items);
-      return [
-        '<tr style="border-bottom: 1px solid #E0D8CC;">',
-        '<td style="padding: 10px 8px; text-align: center; border: 1px solid #E0D8CC;">' + (idx + 1) + '</td>',
-        '<td style="padding: 10px 8px; text-align: center; font-weight: bold; border: 1px solid #E0D8CC;">' + escapeHtml(inv.code) + '</td>',
-        '<td style="padding: 10px 8px; text-align: center; border: 1px solid #E0D8CC;">' + formatDate(inv.date) + '</td>',
-        '<td style="padding: 10px 8px; border: 1px solid #E0D8CC; white-space: pre-wrap;">' + escapeHtml(inv.note || "-") + '</td>',
-        '<td style="padding: 10px 8px; border: 1px solid #E0D8CC; line-height: 1.4;">' + itemsStr + '</td>',
-        '<td style="padding: 10px 8px; text-align: right; font-weight: bold; color: #2E7D32; border: 1px solid #E0D8CC;">' + formatMoney(inv.total) + '</td>',
-        '</tr>'
-      ].join("");
-    }).join("");
-    document.getElementById("pdfTableBody").innerHTML = html;
-
-    document.getElementById("pdfTotalAmount").textContent = formatMoney(invoicesTotalCache);
-
-    var element = document.getElementById("pdfPrintArea");
-
-    // Đưa vào viewport với visibility:hidden để browser paint đầy đủ
-    element.style.display = "block";
-    element.style.position = "fixed";
-    element.style.top = "0";
-    element.style.left = "0";
-    element.style.visibility = "hidden";
-    element.style.zIndex = "9999";
-    element.style.pointerEvents = "none";
-
-    var filename = 'Danh_sach_hoa_don_' + currentShop.name.replace(/\s+/g, '_') + 
-                   (filterDate ? '_' + filterDate : '') + '.pdf';
-
-    var opt = {
-      margin:       [10, 10, 15, 10],
-      filename:     filename,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true, logging: false, width: 800, windowWidth: 800 },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-
-    html2pdf().set(opt).from(element).save().then(function() {
-      element.style.display = "none";
-      element.style.visibility = "";
-      element.style.position = "";
-      element.style.zIndex = "";
-      element.style.pointerEvents = "";
-      showToast("Xuất PDF thành công!", "ok");
-    }).catch(function(err) {
-      element.style.display = "none";
-      element.style.visibility = "";
-      element.style.position = "";
-      element.style.zIndex = "";
-      element.style.pointerEvents = "";
-      showToast("Lỗi xuất PDF: " + err.message, "error");
-    });
+    var filterDate = document.getElementById("dateFilter").value || "";
+    var url = "/api/invoice-shops/" + currentShop.id + "/export-pdf";
+    if (filterDate) {
+      url += "?date=" + encodeURIComponent(filterDate);
+    }
+    window.open(url, "_blank");
   }
 
   function renderPhotoArchive(photos) {

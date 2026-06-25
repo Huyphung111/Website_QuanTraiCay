@@ -1063,6 +1063,139 @@ def api_edit_invoice_photo_name(photo_id):
     return jsonify({"ok": True})
 
 
+
+@app.route('/api/invoice-shops/<int:shop_id>/export-pdf', methods=['GET'])
+@admin_required
+def api_export_pdf(shop_id):
+    from io import BytesIO
+    from flask import Response as FlaskResponse
+    try:
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import ParagraphStyle
+        from reportlab.lib.units import mm
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+    except ImportError:
+        return jsonify({'ok': False, 'error': 'Chua cai reportlab. Chay: pip install reportlab'}), 500
+
+    font_name = 'Helvetica'
+    bold_fn = 'Helvetica-Bold'
+    font_dir = os.path.join(BASE_DIR, 'static', 'fonts')
+    try:
+        fp = os.path.join(font_dir, 'vifont.ttf')
+        fbp = os.path.join(font_dir, 'vifont-bold.ttf')
+        if os.path.exists(fp) and os.path.exists(fbp):
+            pdfmetrics.registerFont(TTFont('ViFont', fp))
+            pdfmetrics.registerFont(TTFont('ViFont-Bold', fbp))
+            font_name = 'ViFont'
+            bold_fn = 'ViFont-Bold'
+    except Exception:
+        pass
+
+    date_filter = (request.args.get('date') or '').strip()
+    conn = get_db()
+    shop = conn.execute('SELECT * FROM invoice_shops WHERE id = ?', (shop_id,)).fetchone()
+    if not shop:
+        conn.close()
+        return jsonify({'ok': False, 'error': 'Khong tim thay quan.'}), 404
+
+    params = [shop_id]
+    where_date = ''
+    if date_filter:
+        where_date = ' AND date = ?'
+        params.append(date_filter)
+    rows = conn.execute(
+        'SELECT * FROM invoices WHERE shop_id = ?' + where_date + ' ORDER BY date DESC, id DESC',
+        params,
+    ).fetchall()
+    invoice_ids = [r['id'] for r in rows]
+    items_by_invoice = {iid: [] for iid in invoice_ids}
+    if invoice_ids:
+        ph = ','.join('?' for _ in invoice_ids)
+        item_rows = conn.execute(
+            'SELECT invoice_id, fruit, price, kg FROM invoice_items WHERE invoice_id IN (' + ph + ') ORDER BY id',
+            invoice_ids,
+        ).fetchall()
+        for item in item_rows:
+            items_by_invoice[item['invoice_id']].append(item)
+    conn.close()
+
+    invoices = [invoice_to_dict(r, items_by_invoice.get(r['id'], [])) for r in rows]
+    total_all = sum(inv['total'] for inv in invoices)
+
+    def fmt_money(n):
+        return '{:,} đ'.format(int(round(n))).replace(',', '.')
+    def fmt_date(d):
+        try:
+            p2 = d.split('-')
+            return p2[2] + '/' + p2[1] + '/' + p2[0]
+        except Exception:
+            return d or ''
+
+    buf = BytesIO()
+    col_w = [10*mm, 18*mm, 22*mm, 35*mm, 57*mm, 30*mm]
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=15*mm, rightMargin=15*mm, topMargin=15*mm, bottomMargin=20*mm)
+
+    C_GOLD = colors.HexColor('#E8A020')
+    C_LIGHT = colors.HexColor('#FFF3DC')
+    C_BORDER = colors.HexColor('#E0D8CC')
+    C_DARK = colors.HexColor('#C8841A')
+    C_GREEN = colors.HexColor('#2E7D32')
+    C_ZEBRA = colors.HexColor('#FAFAF8')
+
+    def p(text, fn=None, size=9, color=None, align=0):
+        fn = fn or font_name
+        st = ParagraphStyle('x', fontName=fn, fontSize=size, leading=size+3, alignment=align, textColor=color or colors.black)
+        return Paragraph(text, st)
+
+    story = []
+    tw = sum(col_w)
+    shop_name_v = shop['name'] or 'Cửa hàng'
+    shop_addr_v = shop['address'] or 'Chưa cập nhật'
+    now_str = datetime.now().strftime('%d/%m/%Y %H:%M')
+    period_str = ('Ngày: ' + fmt_date(date_filter)) if date_filter else 'Tất cả hóa đơn'
+
+    hdr = Table([
+        [p('BÍCH TRÁI CÂY', fn=bold_fn, size=16, color=C_GOLD), p(shop_name_v, fn=bold_fn, size=12, align=2)],
+        [p('Hệ thống quản lý cửa hàng trái cây sạch', size=9, color=colors.HexColor('#666666')), p('Ngày lập: ' + now_str, size=9, color=colors.HexColor('#888888'), align=2)],
+        [p('Địa chỉ: ' + shop_addr_v, size=9, color=colors.HexColor('#666666')), p('', size=9)],
+    ], colWidths=[tw*0.6, tw*0.4])
+    hdr.setStyle(TableStyle([('TOPPADDING',(0,0),(-1,-1),2),('BOTTOMPADDING',(0,0),(-1,-1),3),('LINEBELOW',(0,2),(-1,2),1.5,C_GOLD)]))
+    story.append(hdr)
+    story.append(Spacer(1, 6*mm))
+    story.append(p('BÁO CÁO DOANH THU & DANH SÁCH HÓA ĐƠN', fn=bold_fn, size=14, align=1))
+    story.append(Spacer(1, 2*mm))
+    story.append(p(period_str, size=10, color=colors.HexColor('#666666'), align=1))
+    story.append(Spacer(1, 6*mm))
+
+    tdata = [[p('STT', fn=bold_fn, align=1), p('Mã HD', fn=bold_fn, align=1), p('Ngày tạo', fn=bold_fn, align=1), p('Ghi chú', fn=bold_fn), p('Mặt hàng', fn=bold_fn), p('Thành tiền', fn=bold_fn, align=2)]]
+    for idx, inv in enumerate(invoices):
+        fruits = ', '.join(item['fruit'] for item in (inv['items'] or [])) or '-'
+        tdata.append([p(str(idx+1), align=1), p(inv['code'], fn=bold_fn, align=1), p(fmt_date(inv['date']), align=1), p(inv['note'] or '-'), p(fruits), p(fmt_money(inv['total']), fn=bold_fn, align=2, color=C_GREEN)])
+    tbl = Table(tdata, colWidths=col_w, repeatRows=1)
+    tbl.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),C_LIGHT),('TEXTCOLOR',(0,0),(-1,0),C_DARK),('GRID',(0,0),(-1,-1),0.5,C_BORDER),('LINEABOVE',(0,0),(-1,0),1.5,C_GOLD),('FONTNAME',(0,0),(-1,0),bold_fn),('FONTSIZE',(0,0),(-1,0),9),('TOPPADDING',(0,0),(-1,-1),5),('BOTTOMPADDING',(0,0),(-1,-1),5),('LEFTPADDING',(0,0),(-1,-1),4),('RIGHTPADDING',(0,0),(-1,-1),4),('ROWBACKGROUNDS',(0,1),(-1,-1),[colors.white,C_ZEBRA]),('VALIGN',(0,0),(-1,-1),'TOP')]))
+    story.append(tbl)
+    story.append(Spacer(1, 5*mm))
+
+    tt = Table([[p('TỔNG DOANH THU:', fn=bold_fn, size=11, color=C_DARK, align=2), p(fmt_money(total_all), fn=bold_fn, size=13, color=C_DARK, align=2)]], colWidths=[tw*0.6, tw*0.4])
+    tt.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,-1),C_LIGHT),('BOX',(0,0),(-1,-1),1.5,C_GOLD),('TOPPADDING',(0,0),(-1,-1),8),('BOTTOMPADDING',(0,0),(-1,-1),8),('LEFTPADDING',(0,0),(-1,-1),10),('RIGHTPADDING',(0,0),(-1,-1),10)]))
+    story.append(tt)
+    story.append(Spacer(1, 15*mm))
+
+    st2 = Table([[p('Người lập biểu', fn=bold_fn, size=10, align=1), p(''), p('Đại diện cửa hàng', fn=bold_fn, size=10, align=1)]], colWidths=[tw*0.35, tw*0.3, tw*0.35])
+    st2.setStyle(TableStyle([('BOTTOMPADDING',(0,0),(-1,-1),45),('TOPPADDING',(0,0),(-1,-1),4)]))
+    story.append(st2)
+
+    doc.build(story)
+    buf.seek(0)
+    shop_safe = (shop['name'] or 'quan').replace(' ', '_')
+    date_safe = ('_' + date_filter) if date_filter else ''
+    fname = 'Danh_sach_hoa_don_' + shop_safe + date_safe + '.pdf'
+    return FlaskResponse(buf.read(), mimetype='application/pdf', headers={'Content-Disposition': 'attachment; filename=' + fname})
+
+
 # Tạo bảng + nạp dữ liệu mẫu ngay khi import.
 # Phải đặt ở cấp module (không phải trong __main__) để khi deploy bằng WSGI
 # (PythonAnywhere, gunicorn...) database vẫn được khởi tạo đầy đủ.

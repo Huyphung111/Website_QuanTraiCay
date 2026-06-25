@@ -684,13 +684,14 @@ body {
   .action-btn,
   .add-shop-btn,
   .modal-overlay,
-  .shop-grid {
+  .shop-grid,
+  #pdfPrintArea {
     display: none !important;
   }
   .screen {
     display: none !important;
   }
-  .screen.active {
+  #screen-shop-detail {
     display: block !important;
     box-shadow: none !important;
     background: #fff !important;
